@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/jeffxjh.github.io/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/jeffxjh.github.io/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/jeffxjh.github.io/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/jeffxjh.github.io/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/jeffxjh.github.io/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic|PT Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/jeffxjh.github.io/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"github.com","root":"/jeffxjh.github.io/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="如何保证redis挂掉已后数据丢失或者数据不一致的问题。所以异常类型总结spring是如何解决循环依赖的@transaction注解@async注解失效原因">
+<meta property="og:type" content="article">
+<meta property="og:title" content="面试准备">
+<meta property="og:url" content="https://github.com/jeffxjh/jeffxjh.github.io/2021/03/22/%E9%9D%A2%E8%AF%95%E5%87%86%E5%A4%87/index.html">
+<meta property="og:site_name" content="清风徐来">
+<meta property="og:description" content="如何保证redis挂掉已后数据丢失或者数据不一致的问题。所以异常类型总结spring是如何解决循环依赖的@transaction注解@async注解失效原因">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://camo.githubusercontent.com/798e84b97ff7675fcb482ab03092706ba8d238baa1d7672f80dc35d13e98b90e/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f537072696e672545342542382542422545382541362538312545362541382541312545352539442539372e706e67">
+<meta property="og:image" content="https://camo.githubusercontent.com/5474972f83f61bc6d3a684ba73ff2cc2da80c55ee575a8dde270d79c6ef2d699/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d372f537072696e674d56432545342542432541302545372542422539462545352542372541352545342542442539432545362542352538312545372541382538422e706e67">
+<meta property="og:image" content="https://camo.githubusercontent.com/55cbcce8007cbb1c408cd766178c91986498187ef1f9b4aba13c2741504b24c7/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d372f537072696e674d564352657374436f6e74726f6c6c65722e706e67">
+<meta property="og:image" content="https://camo.githubusercontent.com/99880ce9b9bb9fe245fec5362b09c597d8f2030ad2d14cba2790f2f63bbd601d/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d372f537072696e67332e784d56435245535466756c5765622545362539432538442545352538412541312545352542372541352545342542442539432545362542352538312545372541382538422e706e67">
+<meta property="og:image" content="https://camo.githubusercontent.com/f755b974ddea2dcc702d0b9b2a08710f779aff519a042e3b0340d92756835aef/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d372f537072696e67494f432545352538382539442545352541372538422545352538432539362545382542462538372545372541382538422e706e67">
+<meta property="og:image" content="https://camo.githubusercontent.com/2948f9b2b5c45eb208990afcac1bf5638783dc3ebc834d3d7d2d4f7cc050981c/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f537072696e67414f5050726f636573732e6a7067">
+<meta property="og:image" content="https://camo.githubusercontent.com/88419f86f9217dc22d5e06d705ceed80523bd1fb6732c0bbaea83ec7dfbf7db7/687474703a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f31382d392d31372f34383337363237322e6a7067">
+<meta property="og:image" content="https://camo.githubusercontent.com/bc7d32ce0850ca343b1c3ef2ee28e702c468b34d1cde970b646facde6c5ff579/687474703a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f31382d392d31372f353439363430372e6a7067">
+<meta property="og:image" content="https://camo.githubusercontent.com/5c267204e931f978620a0873cd47174bede05467a038b56036dc9314d5d6094f/687474703a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f31382d31302d31312f36303637393434342e6a7067">
+<meta property="og:image" content="https://camo.githubusercontent.com/5286b702ca4eb9f100758317e237e853d9579f8f4984d5ad468636d6db89b782/687474703a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f31382d31302d31312f34393739303238382e6a7067">
+<meta property="og:image" content="https://github.com/Snailclimb/JavaGuide/raw/master/docs/system-design/framework/spring/images/spring-transaction/bda7231b-ab05-4e23-95ee-89ac90ac7fcf.png">
+<meta property="og:image" content="https://github.com/Snailclimb/JavaGuide/raw/master/docs/system-design/framework/spring/images/spring-transaction/ae964c2c-7289-441c-bddd-511161f51ee1.png">
+<meta property="og:image" content="https://github.com/Snailclimb/JavaGuide/raw/master/docs/system-design/framework/spring/images/spring-transaction/%E6%8E%A5%E5%8F%A3%E4%BD%BF%E7%94%A8%E5%8E%9F%E5%9B%A0.png">
+<meta property="og:image" content="https://github.com/Snailclimb/JavaGuide/raw/master/docs/system-design/framework/spring/images/spring-transaction/a616b84d-9eea-4ad1-b4fc-461ff05e951d.png">
+<meta property="og:image" content="https://github.com/Snailclimb/JavaGuide/raw/master/docs/system-design/framework/spring/images/spring-transaction/f6c6f0aa-0f26-49e1-84b3-7f838c7379d1.png">
+<meta property="og:image" content="https://camo.githubusercontent.com/92e6f17f500f63a340b52ef769384a924eff1bc414b16f5f2a663f38326c11e0/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f696f632d7061747465726e732e706e67">
+<meta property="og:image" content="https://camo.githubusercontent.com/2948f9b2b5c45eb208990afcac1bf5638783dc3ebc834d3d7d2d4f7cc050981c/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f537072696e67414f5050726f636573732e6a7067">
+<meta property="og:image" content="https://camo.githubusercontent.com/61adb611ba7c950b20dc6f2bc3aaddd7596497f9e8ffe1e682b822cc33793a48/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f4170706c69636174696f6e4576656e742d537562636c6173732e706e67">
+<meta property="og:image" content="https://camo.githubusercontent.com/92d5fca30ccf6e54940a36521360ef71aa260a0e84875f705c966311a506f435/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f4465636f7261746f722e6a7067">
+<meta property="og:image" content="https://images2015.cnblogs.com/blog/756310/201609/756310-20160924153802543-1643119235.jpg">
+<meta property="og:image" content="https://images2015.cnblogs.com/blog/756310/201609/756310-20160924161444074-1045394614.jpg">
+<meta property="og:image" content="https://images2015.cnblogs.com/blog/756310/201612/756310-20161224235824807-1026162849.jpg">
+<meta property="og:image" content="https://images2015.cnblogs.com/blog/756310/201612/756310-20161224235824807-1026162849.jpg">
+<meta property="og:image" content="https://camo.githubusercontent.com/6bcfd2124ea425d8603f85e404b68518b76901357d1f6717a51a8a135775bbff/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d372f25453525383825383625453525423825383325453525424325384669642545362539362542392545362541312538382e6a706567">
+<meta property="og:image" content="https://camo.githubusercontent.com/b5790b5466f04f53418aae9660f7feb5c1a3e89c762bfe806e0c0edfc1bfd45c/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d372f2545392539422541412545382538412542312545372541452539372545362542332539352e706e67">
+<meta property="article:published_time" content="2021-03-22T12:41:36.000Z">
+<meta property="article:modified_time" content="2021-03-22T14:59:00.989Z">
+<meta property="article:author" content="jeffxjh">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://camo.githubusercontent.com/798e84b97ff7675fcb482ab03092706ba8d238baa1d7672f80dc35d13e98b90e/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f537072696e672545342542382542422545382541362538312545362541382541312545352539442539372e706e67">
+
+<link rel="canonical" href="https://github.com/jeffxjh/jeffxjh.github.io/2021/03/22/%E9%9D%A2%E8%AF%95%E5%87%86%E5%A4%87/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>面试准备 | 清风徐来</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/jeffxjh.github.io/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">清风徐来</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/jeffxjh.github.io/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/jeffxjh.github.io/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/jeffxjh.github.io/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/jeffxjh.github.io/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://github.com/jeffxjh/jeffxjh.github.io/2021/03/22/%E9%9D%A2%E8%AF%95%E5%87%86%E5%A4%87/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/jeffxjh.github.io/images/avatar.gif">
+      <meta itemprop="name" content="jeffxjh">
+      <meta itemprop="description" content="个人经验总结">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="清风徐来">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          面试准备
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-03-22 20:41:36 / 修改时间：22:59:00" itemprop="dateCreated datePublished" datetime="2021-03-22T20:41:36+08:00">2021-03-22</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h4 id="如何保证redis挂掉已后数据丢失或者数据不一致的问题。"><a href="#如何保证redis挂掉已后数据丢失或者数据不一致的问题。" class="headerlink" title="如何保证redis挂掉已后数据丢失或者数据不一致的问题。"></a>如何保证redis挂掉已后数据丢失或者数据不一致的问题。</h4><h4 id="所以异常类型总结"><a href="#所以异常类型总结" class="headerlink" title="所以异常类型总结"></a>所以异常类型总结</h4><h4 id="spring是如何解决循环依赖的"><a href="#spring是如何解决循环依赖的" class="headerlink" title="spring是如何解决循环依赖的"></a>spring是如何解决循环依赖的</h4><h4 id="transaction注解-async注解失效原因"><a href="#transaction注解-async注解失效原因" class="headerlink" title="@transaction注解@async注解失效原因"></a>@transaction注解@async注解失效原因</h4><span id="more"></span>
+
+<h4 id="动态代理有哪些"><a href="#动态代理有哪些" class="headerlink" title="动态代理有哪些"></a>动态代理有哪些</h4><h4 id="基于JWT-TOKEN的授权认证流程"><a href="#基于JWT-TOKEN的授权认证流程" class="headerlink" title="基于JWT TOKEN的授权认证流程"></a>基于JWT TOKEN的授权认证流程</h4><h4 id="spring用到了那些设计模式"><a href="#spring用到了那些设计模式" class="headerlink" title="spring用到了那些设计模式"></a>spring用到了那些设计模式</h4><h4 id="为什么spring默认是单例的"><a href="#为什么spring默认是单例的" class="headerlink" title="为什么spring默认是单例的"></a>为什么spring默认是单例的</h4><h4 id="内存泄漏的原因有哪些，如何避免"><a href="#内存泄漏的原因有哪些，如何避免" class="headerlink" title="内存泄漏的原因有哪些，如何避免"></a>内存泄漏的原因有哪些，如何避免</h4><h4 id="手写单例代码"><a href="#手写单例代码" class="headerlink" title="手写单例代码"></a>手写单例代码</h4><h4 id="基本数据类型长度"><a href="#基本数据类型长度" class="headerlink" title="基本数据类型长度"></a>基本数据类型长度</h4><h4 id="动态注入bean"><a href="#动态注入bean" class="headerlink" title="动态注入bean"></a>动态注入bean</h4><h4 id="其他基本的面试题"><a href="#其他基本的面试题" class="headerlink" title="其他基本的面试题"></a>其他基本的面试题</h4><h4 id="mysql的存储引擎有哪些，有哪些特点区别"><a href="#mysql的存储引擎有哪些，有哪些特点区别" class="headerlink" title="mysql的存储引擎有哪些，有哪些特点区别"></a>mysql的存储引擎有哪些，有哪些特点区别</h4><h4 id="mysql事务与oracle事务的区别"><a href="#mysql事务与oracle事务的区别" class="headerlink" title="mysql事务与oracle事务的区别"></a>mysql事务与oracle事务的区别</h4><h4 id="如何不重启动态切换数据源"><a href="#如何不重启动态切换数据源" class="headerlink" title="如何不重启动态切换数据源"></a>如何不重启动态切换数据源</h4><h4 id="如何一个系统使用两个不同类型数据库"><a href="#如何一个系统使用两个不同类型数据库" class="headerlink" title="如何一个系统使用两个不同类型数据库"></a>如何一个系统使用两个不同类型数据库</h4><h4 id="redis的应用"><a href="#redis的应用" class="headerlink" title="redis的应用"></a>redis的应用</h4><h4 id="rabbitmq的应用"><a href="#rabbitmq的应用" class="headerlink" title="rabbitmq的应用"></a>rabbitmq的应用</h4><h4 id="rabbitmq如何保证数据不重复消费，不丢失"><a href="#rabbitmq如何保证数据不重复消费，不丢失" class="headerlink" title="rabbitmq如何保证数据不重复消费，不丢失"></a>rabbitmq如何保证数据不重复消费，不丢失</h4><h4 id="springboot自动装配原理"><a href="#springboot自动装配原理" class="headerlink" title="springboot自动装配原理"></a>springboot自动装配原理</h4><h4 id="mybatis分页有哪些方式"><a href="#mybatis分页有哪些方式" class="headerlink" title="mybatis分页有哪些方式"></a>mybatis分页有哪些方式</h4><h4 id="做一个简单的个人项目"><a href="#做一个简单的个人项目" class="headerlink" title="做一个简单的个人项目"></a>做一个简单的个人项目</h4><h4 id="springmvc的流程"><a href="#springmvc的流程" class="headerlink" title="springmvc的流程"></a>springmvc的流程</h4><h4 id="redis的所有常见问题-雪崩-击穿-穿透-脑裂-哨兵。。。"><a href="#redis的所有常见问题-雪崩-击穿-穿透-脑裂-哨兵。。。" class="headerlink" title="redis的所有常见问题 雪崩 击穿 穿透 脑裂 哨兵。。。"></a>redis的所有常见问题 雪崩 击穿 穿透 脑裂 哨兵。。。</h4><h2 id=""><a href="#" class="headerlink" title=""></a></h2><p>这篇文章主要是想通过一些问题，加深大家对于 Spring 的理解，所以不会涉及太多的代码！这篇文章整理了挺长时间，下面的很多问题我自己在使用 Spring 的过程中也并没有注意，自己也是临时查阅了很多资料和书籍补上的。网上也有一些很多关于 Spring 常见问题/面试题整理的文章，我感觉大部分都是互相 copy，而且很多问题也不是很好，有些回答也存在问题。所以，自己花了一周的业余时间整理了一下，希望对大家有帮助。</p>
+<h2 id="1-什么是-Spring-框架"><a href="#1-什么是-Spring-框架" class="headerlink" title="1. 什么是 Spring 框架?"></a>1. 什么是 Spring 框架?</h2><p>Spring 是一种轻量级开发框架，旨在提高开发人员的开发效率以及系统的可维护性。Spring 官网：<a target="_blank" rel="noopener" href="https://spring.io/%E3%80%82">https://spring.io/。</a></p>
+<p>我们一般说 Spring 框架指的都是 Spring Framework，它是很多模块的集合，使用这些模块可以很方便地协助我们进行开发。这些模块是：核心容器、数据访问/集成,、Web、AOP（面向切面编程）、工具、消息和测试模块。比如：Core Container 中的 Core 组件是Spring 所有组件的核心，Beans 组件和 Context 组件是实现IOC和依赖注入的基础，AOP组件用来实现面向切面编程。</p>
+<p>Spring 官网列出的 Spring 的 6 个特征:</p>
+<ul>
+<li><strong>核心技术</strong> ：依赖注入(DI)，AOP，事件(events)，资源，i18n，验证，数据绑定，类型转换，SpEL。</li>
+<li><strong>测试</strong> ：模拟对象，TestContext框架，Spring MVC 测试，WebTestClient。</li>
+<li><strong>数据访问</strong> ：事务，DAO支持，JDBC，ORM，编组XML。</li>
+<li><strong>Web支持</strong> : Spring MVC和Spring WebFlux Web框架。</li>
+<li><strong>集成</strong> ：远程处理，JMS，JCA，JMX，电子邮件，任务，调度，缓存。</li>
+<li><strong>语言</strong> ：Kotlin，Groovy，动态语言。</li>
+</ul>
+<h2 id="2-列举一些重要的Spring模块？"><a href="#2-列举一些重要的Spring模块？" class="headerlink" title="2. 列举一些重要的Spring模块？"></a>2. 列举一些重要的Spring模块？</h2><p>下图对应的是 Spring4.x 版本。目前最新的5.x版本中 Web 模块的 Portlet 组件已经被废弃掉，同时增加了用于异步响应式处理的 WebFlux 组件。</p>
+<p><a target="_blank" rel="noopener" href="https://camo.githubusercontent.com/798e84b97ff7675fcb482ab03092706ba8d238baa1d7672f80dc35d13e98b90e/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f537072696e672545342542382542422545382541362538312545362541382541312545352539442539372e706e67"><img src="https://camo.githubusercontent.com/798e84b97ff7675fcb482ab03092706ba8d238baa1d7672f80dc35d13e98b90e/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f537072696e672545342542382542422545382541362538312545362541382541312545352539442539372e706e67" alt="Spring主要模块"></a></p>
+<ul>
+<li><strong>Spring Core：</strong> 基础,可以说 Spring 其他所有的功能都需要依赖于该类库。主要提供 IoC 依赖注入功能。</li>
+<li><strong>Spring Aspects</strong> ： 该模块为与AspectJ的集成提供支持。</li>
+<li><strong>Spring AOP</strong> ：提供了面向切面的编程实现。</li>
+<li><strong>Spring JDBC</strong> : Java数据库连接。</li>
+<li><strong>Spring JMS</strong> ：Java消息服务。</li>
+<li><strong>Spring ORM</strong> : 用于支持Hibernate等ORM工具。</li>
+<li><strong>Spring Web</strong> : 为创建Web应用程序提供支持。</li>
+<li><strong>Spring Test</strong> : 提供了对 JUnit 和 TestNG 测试的支持。</li>
+</ul>
+<h2 id="3-RestController-vs-Controller"><a href="#3-RestController-vs-Controller" class="headerlink" title="3. @RestController vs @Controller"></a>3. @RestController vs @Controller</h2><p><strong><code>Controller</code> 返回一个页面</strong></p>
+<p>单独使用 <code>@Controller</code> 不加 <code>@ResponseBody</code>的话一般使用在要返回一个视图的情况，这种情况属于比较传统的Spring MVC 的应用，对应于前后端不分离的情况。</p>
+<p><a target="_blank" rel="noopener" href="https://camo.githubusercontent.com/5474972f83f61bc6d3a684ba73ff2cc2da80c55ee575a8dde270d79c6ef2d699/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d372f537072696e674d56432545342542432541302545372542422539462545352542372541352545342542442539432545362542352538312545372541382538422e706e67"><img src="https://camo.githubusercontent.com/5474972f83f61bc6d3a684ba73ff2cc2da80c55ee575a8dde270d79c6ef2d699/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d372f537072696e674d56432545342542432541302545372542422539462545352542372541352545342542442539432545362542352538312545372541382538422e706e67" alt="SpringMVC 传统工作流程"></a></p>
+<p><strong><code>@RestController</code> 返回JSON 或 XML 形式数据</strong></p>
+<p>但<code>@RestController</code>只返回对象，对象数据直接以 JSON 或 XML 形式写入 HTTP 响应(Response)中，这种情况属于 RESTful Web服务，这也是目前日常开发所接触的最常用的情况（前后端分离）。</p>
+<p><a target="_blank" rel="noopener" href="https://camo.githubusercontent.com/55cbcce8007cbb1c408cd766178c91986498187ef1f9b4aba13c2741504b24c7/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d372f537072696e674d564352657374436f6e74726f6c6c65722e706e67"><img src="https://camo.githubusercontent.com/55cbcce8007cbb1c408cd766178c91986498187ef1f9b4aba13c2741504b24c7/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d372f537072696e674d564352657374436f6e74726f6c6c65722e706e67" alt="SpringMVC+RestController"></a></p>
+<p><strong><code>@Controller +@ResponseBody</code> 返回JSON 或 XML 形式数据</strong></p>
+<p>如果你需要在Spring4之前开发 RESTful Web服务的话，你需要使用<code>@Controller</code> 并结合<code>@ResponseBody</code>注解，也就是说<code>@Controller</code> +<code>@ResponseBody</code>= <code>@RestController</code>（Spring 4 之后新加的注解）。</p>
+<blockquote>
+<p><code>@ResponseBody</code> 注解的作用是将 <code>Controller</code> 的方法返回的对象通过适当的转换器转换为指定的格式之后，写入到HTTP 响应(Response)对象的 body 中，通常用来返回 JSON 或者 XML 数据，返回 JSON 数据的情况比较多。</p>
+</blockquote>
+<p><a target="_blank" rel="noopener" href="https://camo.githubusercontent.com/99880ce9b9bb9fe245fec5362b09c597d8f2030ad2d14cba2790f2f63bbd601d/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d372f537072696e67332e784d56435245535466756c5765622545362539432538442545352538412541312545352542372541352545342542442539432545362542352538312545372541382538422e706e67"><img src="https://camo.githubusercontent.com/99880ce9b9bb9fe245fec5362b09c597d8f2030ad2d14cba2790f2f63bbd601d/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d372f537072696e67332e784d56435245535466756c5765622545362539432538442545352538412541312545352542372541352545342542442539432545362542352538312545372541382538422e706e67" alt="Spring3.xMVC RESTfulWeb服务工作流程"></a></p>
+<p>Reference:</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://dzone.com/articles/spring-framework-restcontroller-vs-controller">https://dzone.com/articles/spring-framework-restcontroller-vs-controller</a> （图片来源）</li>
+<li><a target="_blank" rel="noopener" href="https://javarevisited.blogspot.com/2017/08/difference-between-restcontroller-and-controller-annotations-spring-mvc-rest.html?m=1">https://javarevisited.blogspot.com/2017/08/difference-between-restcontroller-and-controller-annotations-spring-mvc-rest.html?m=1</a></li>
+</ul>
+<h2 id="4-Spring-IOC-amp-AOP"><a href="#4-Spring-IOC-amp-AOP" class="headerlink" title="4. Spring IOC &amp; AOP"></a>4. Spring IOC &amp; AOP</h2><h3 id="4-1-谈谈自己对于-Spring-IoC-和-AOP-的理解"><a href="#4-1-谈谈自己对于-Spring-IoC-和-AOP-的理解" class="headerlink" title="4.1 谈谈自己对于 Spring IoC 和 AOP 的理解"></a>4.1 谈谈自己对于 Spring IoC 和 AOP 的理解</h3><h4 id="IoC"><a href="#IoC" class="headerlink" title="IoC"></a>IoC</h4><p>IoC（Inverse of Control:控制反转）是一种<strong>设计思想</strong>，就是 <strong>将原本在程序中手动创建对象的控制权，交由Spring框架来管理。</strong> IoC 在其他语言中也有应用，并非 Spring 特有。 <strong>IoC 容器是 Spring 用来实现 IoC 的载体， IoC 容器实际上就是个Map（key，value）,Map 中存放的是各种对象。</strong></p>
+<p>将对象之间的相互依赖关系交给 IoC 容器来管理，并由 IoC 容器完成对象的注入。这样可以很大程度上简化应用的开发，把应用从复杂的依赖关系中解放出来。 <strong>IoC 容器就像是一个工厂一样，当我们需要创建一个对象的时候，只需要配置好配置文件/注解即可，完全不用考虑对象是如何被创建出来的。</strong> 在实际项目中一个 Service 类可能有几百甚至上千个类作为它的底层，假如我们需要实例化这个 Service，你可能要每次都要搞清这个 Service 所有底层类的构造函数，这可能会把人逼疯。如果利用 IoC 的话，你只需要配置好，然后在需要的地方引用就行了，这大大增加了项目的可维护性且降低了开发难度。</p>
+<p>Spring 时代我们一般通过 XML 文件来配置 Bean，后来开发人员觉得 XML 文件来配置不太好，于是 SpringBoot 注解配置就慢慢开始流行起来。</p>
+<p>推荐阅读：<a target="_blank" rel="noopener" href="https://www.zhihu.com/question/23277575/answer/169698662">https://www.zhihu.com/question/23277575/answer/169698662</a></p>
+<p><strong>Spring IoC的初始化过程：</strong></p>
+<p><a target="_blank" rel="noopener" href="https://camo.githubusercontent.com/f755b974ddea2dcc702d0b9b2a08710f779aff519a042e3b0340d92756835aef/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d372f537072696e67494f432545352538382539442545352541372538422545352538432539362545382542462538372545372541382538422e706e67"><img src="https://camo.githubusercontent.com/f755b974ddea2dcc702d0b9b2a08710f779aff519a042e3b0340d92756835aef/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d372f537072696e67494f432545352538382539442545352541372538422545352538432539362545382542462538372545372541382538422e706e67" alt="Spring IoC的初始化过程"></a></p>
+<p>IoC源码阅读</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://javadoop.com/post/spring-ioc">https://javadoop.com/post/spring-ioc</a></li>
+</ul>
+<h4 id="AOP"><a href="#AOP" class="headerlink" title="AOP"></a>AOP</h4><p>AOP(Aspect-Oriented Programming:面向切面编程)能够将那些与业务无关，<strong>却为业务模块所共同调用的逻辑或责任（例如事务处理、日志管理、权限控制等）封装起来</strong>，便于<strong>减少系统的重复代码</strong>，<strong>降低模块间的耦合度</strong>，并<strong>有利于未来的可拓展性和可维护性</strong>。</p>
+<p><strong>Spring AOP就是基于动态代理的</strong>，如果要代理的对象，实现了某个接口，那么Spring AOP会使用<strong>JDK Proxy</strong>，去创建代理对象，而对于没有实现接口的对象，就无法使用 JDK Proxy 去进行代理了，这时候Spring AOP会使用<strong>Cglib</strong> ，这时候Spring AOP会使用 <strong>Cglib</strong> 生成一个被代理对象的子类来作为代理，如下图所示：</p>
+<p><a target="_blank" rel="noopener" href="https://camo.githubusercontent.com/2948f9b2b5c45eb208990afcac1bf5638783dc3ebc834d3d7d2d4f7cc050981c/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f537072696e67414f5050726f636573732e6a7067"><img src="https://camo.githubusercontent.com/2948f9b2b5c45eb208990afcac1bf5638783dc3ebc834d3d7d2d4f7cc050981c/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f537072696e67414f5050726f636573732e6a7067" alt="SpringAOPProcess"></a></p>
+<p>当然你也可以使用 AspectJ ,Spring AOP 已经集成了AspectJ ，AspectJ 应该算的上是 Java 生态系统中最完整的 AOP 框架了。</p>
+<p>使用 AOP 之后我们可以把一些通用功能抽象出来，在需要用到的地方直接使用即可，这样大大简化了代码量。我们需要增加新功能时也方便，这样也提高了系统扩展性。日志功能、事务管理等等场景都用到了 AOP 。</p>
+<h3 id="4-2-Spring-AOP-和-AspectJ-AOP-有什么区别？"><a href="#4-2-Spring-AOP-和-AspectJ-AOP-有什么区别？" class="headerlink" title="4.2 Spring AOP 和 AspectJ AOP 有什么区别？"></a>4.2 Spring AOP 和 AspectJ AOP 有什么区别？</h3><p><strong>Spring AOP 属于运行时增强，而 AspectJ 是编译时增强。</strong> Spring AOP 基于代理(Proxying)，而 AspectJ 基于字节码操作(Bytecode Manipulation)。</p>
+<p>Spring AOP 已经集成了 AspectJ ，AspectJ 应该算的上是 Java 生态系统中最完整的 AOP 框架了。AspectJ 相比于 Spring AOP 功能更加强大，但是 Spring AOP 相对来说更简单，</p>
+<p>如果我们的切面比较少，那么两者性能差异不大。但是，当切面太多的话，最好选择 AspectJ ，它比Spring AOP 快很多。</p>
+<h2 id="5-Spring-bean"><a href="#5-Spring-bean" class="headerlink" title="5. Spring bean"></a>5. Spring bean</h2><h3 id="5-1-Spring-中的-bean-的作用域有哪些"><a href="#5-1-Spring-中的-bean-的作用域有哪些" class="headerlink" title="5.1 Spring 中的 bean 的作用域有哪些?"></a>5.1 Spring 中的 bean 的作用域有哪些?</h3><ul>
+<li>singleton : 唯一 bean 实例，Spring 中的 bean 默认都是单例的。</li>
+<li>prototype : 每次请求都会创建一个新的 bean 实例。</li>
+<li>request : 每一次HTTP请求都会产生一个新的bean，该bean仅在当前HTTP request内有效。</li>
+<li>session : 每一次HTTP请求都会产生一个新的 bean，该bean仅在当前 HTTP session 内有效。</li>
+<li>global-session： 全局session作用域，仅仅在基于portlet的web应用中才有意义，Spring5已经没有了。Portlet是能够生成语义代码(例如：HTML)片段的小型Java Web插件。它们基于portlet容器，可以像servlet一样处理HTTP请求。但是，与 servlet 不同，每个 portlet 都有不同的会话</li>
+</ul>
+<h3 id="5-2-Spring-中的单例-bean-的线程安全问题了解吗？"><a href="#5-2-Spring-中的单例-bean-的线程安全问题了解吗？" class="headerlink" title="5.2 Spring 中的单例 bean 的线程安全问题了解吗？"></a>5.2 Spring 中的单例 bean 的线程安全问题了解吗？</h3><p>的确是存在安全问题的。因为，当多个线程操作同一个对象的时候，对这个对象的成员变量的写操作会存在线程安全问题。</p>
+<p>但是，一般情况下，我们常用的 <code>Controller</code>、<code>Service</code>、<code>Dao</code> 这些 Bean 是无状态的。无状态的 Bean 不能保存数据，因此是线程安全的。</p>
+<p>常见的有 2 种解决办法：</p>
+<ol>
+<li>在类中定义一个 <code>ThreadLocal</code> 成员变量，将需要的可变成员变量保存在 <code>ThreadLocal</code> 中（推荐的一种方式）。</li>
+<li>改变 Bean 的作用域为 “prototype”：每次请求都会创建一个新的 bean 实例，自然不会存在线程安全问题。</li>
+</ol>
+<h3 id="5-3-Component-和-Bean-的区别是什么？"><a href="#5-3-Component-和-Bean-的区别是什么？" class="headerlink" title="5.3 @Component 和 @Bean 的区别是什么？"></a>5.3 @Component 和 @Bean 的区别是什么？</h3><ol>
+<li>作用对象不同: <code>@Component</code> 注解作用于类，而<code>@Bean</code>注解作用于方法。</li>
+<li><code>@Component</code>通常是通过类路径扫描来自动侦测以及自动装配到Spring容器中（我们可以使用 <code>@ComponentScan</code> 注解定义要扫描的路径从中找出标识了需要装配的类自动装配到 Spring 的 bean 容器中）。<code>@Bean</code> 注解通常是我们在标有该注解的方法中定义产生这个 bean,<code>@Bean</code>告诉了Spring这是某个类的示例，当我需要用它的时候还给我。</li>
+<li><code>@Bean</code> 注解比 <code>Component</code> 注解的自定义性更强，而且很多地方我们只能通过 <code>@Bean</code> 注解来注册bean。比如当我们引用第三方库中的类需要装配到 <code>Spring</code>容器时，则只能通过 <code>@Bean</code>来实现。</li>
+</ol>
+<p><code>@Bean</code>注解使用示例：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">@Configuration</span><br><span class="line">public class AppConfig &#123;</span><br><span class="line">    @Bean</span><br><span class="line">    public TransferService transferService() &#123;</span><br><span class="line">        return new TransferServiceImpl();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面的代码相当于下面的 xml 配置</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&lt;beans&gt;</span><br><span class="line">    &lt;bean id&#x3D;&quot;transferService&quot; class&#x3D;&quot;com.acme.TransferServiceImpl&quot;&#x2F;&gt;</span><br><span class="line">&lt;&#x2F;beans&gt;</span><br></pre></td></tr></table></figure>
+
+<p>下面这个例子是通过 <code>@Component</code> 无法实现的。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">@Bean</span><br><span class="line">public OneService getService(status) &#123;</span><br><span class="line">    case (status)  &#123;</span><br><span class="line">        when 1:</span><br><span class="line">                return new serviceImpl1();</span><br><span class="line">        when 2:</span><br><span class="line">                return new serviceImpl2();</span><br><span class="line">        when 3:</span><br><span class="line">                return new serviceImpl3();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-4-将一个类声明为Spring的-bean-的注解有哪些"><a href="#5-4-将一个类声明为Spring的-bean-的注解有哪些" class="headerlink" title="5.4 将一个类声明为Spring的 bean 的注解有哪些?"></a>5.4 将一个类声明为Spring的 bean 的注解有哪些?</h3><p>我们一般使用 <code>@Autowired</code> 注解自动装配 bean，要想把类标识成可用于 <code>@Autowired</code> 注解自动装配的 bean 的类,采用以下注解可实现：</p>
+<ul>
+<li><code>@Component</code> ：通用的注解，可标注任意类为 <code>Spring</code> 组件。如果一个Bean不知道属于哪个层，可以使用<code>@Component</code> 注解标注。</li>
+<li><code>@Repository</code> : 对应持久层即 Dao 层，主要用于数据库相关操作。</li>
+<li><code>@Service</code> : 对应服务层，主要涉及一些复杂的逻辑，需要用到 Dao层。</li>
+<li><code>@Controller</code> : 对应 Spring MVC 控制层，主要用于接受用户请求并调用 Service 层返回数据给前端页面。</li>
+</ul>
+<h3 id="5-5-Spring-中的-bean-生命周期"><a href="#5-5-Spring-中的-bean-生命周期" class="headerlink" title="5.5 Spring 中的 bean 生命周期?"></a>5.5 Spring 中的 bean 生命周期?</h3><p>这部分网上有很多文章都讲到了，下面的内容整理自： <del><a target="_blank" rel="noopener" href="https://yemengying.com/2016/07/14/spring-bean-life-cycle/">https://yemengying.com/2016/07/14/spring-bean-life-cycle/</a></del> (原作者可能不再维护这个博客，连接无法访问，可通过其 Github 仓库访问 <a href="https://github.com/giraffe0813/giraffe0813.github.io">https://github.com/giraffe0813/giraffe0813.github.io</a>) ，除了这篇文章，再推荐一篇很不错的文章 ：<a target="_blank" rel="noopener" href="https://www.cnblogs.com/zrtqsk/p/3735273.html">https://www.cnblogs.com/zrtqsk/p/3735273.html</a> 。</p>
+<ul>
+<li>Bean 容器找到配置文件中 Spring Bean 的定义。</li>
+<li>Bean 容器利用 Java Reflection API 创建一个Bean的实例。</li>
+<li>如果涉及到一些属性值 利用 <code>set()</code>方法设置一些属性值。</li>
+<li>如果 Bean 实现了 <code>BeanNameAware</code> 接口，调用 <code>setBeanName()</code>方法，传入Bean的名字。</li>
+<li>如果 Bean 实现了 <code>BeanClassLoaderAware</code> 接口，调用 <code>setBeanClassLoader()</code>方法，传入 <code>ClassLoader</code>对象的实例。</li>
+<li>与上面的类似，如果实现了其他 <code>*.Aware</code>接口，就调用相应的方法。</li>
+<li>如果有和加载这个 Bean 的 Spring 容器相关的 <code>BeanPostProcessor</code> 对象，执行<code>postProcessBeforeInitialization()</code> 方法</li>
+<li>如果Bean实现了<code>InitializingBean</code>接口，执行<code>afterPropertiesSet()</code>方法。</li>
+<li>如果 Bean 在配置文件中的定义包含 init-method 属性，执行指定的方法。</li>
+<li>如果有和加载这个 Bean的 Spring 容器相关的 <code>BeanPostProcessor</code> 对象，执行<code>postProcessAfterInitialization()</code> 方法</li>
+<li>当要销毁 Bean 的时候，如果 Bean 实现了 <code>DisposableBean</code> 接口，执行 <code>destroy()</code> 方法。</li>
+<li>当要销毁 Bean 的时候，如果 Bean 在配置文件中的定义包含 destroy-method 属性，执行指定的方法。</li>
+</ul>
+<p>图示：</p>
+<p><a target="_blank" rel="noopener" href="https://camo.githubusercontent.com/88419f86f9217dc22d5e06d705ceed80523bd1fb6732c0bbaea83ec7dfbf7db7/687474703a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f31382d392d31372f34383337363237322e6a7067"><img src="https://camo.githubusercontent.com/88419f86f9217dc22d5e06d705ceed80523bd1fb6732c0bbaea83ec7dfbf7db7/687474703a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f31382d392d31372f34383337363237322e6a7067" alt="Spring Bean 生命周期"></a></p>
+<p>与之比较类似的中文版本:</p>
+<p><a target="_blank" rel="noopener" href="https://camo.githubusercontent.com/bc7d32ce0850ca343b1c3ef2ee28e702c468b34d1cde970b646facde6c5ff579/687474703a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f31382d392d31372f353439363430372e6a7067"><img src="https://camo.githubusercontent.com/bc7d32ce0850ca343b1c3ef2ee28e702c468b34d1cde970b646facde6c5ff579/687474703a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f31382d392d31372f353439363430372e6a7067" alt="Spring Bean 生命周期"></a></p>
+<h2 id="6-Spring-MVC"><a href="#6-Spring-MVC" class="headerlink" title="6. Spring MVC"></a>6. Spring MVC</h2><h3 id="6-1-说说自己对于-Spring-MVC-了解"><a href="#6-1-说说自己对于-Spring-MVC-了解" class="headerlink" title="6.1 说说自己对于 Spring MVC 了解?"></a>6.1 说说自己对于 Spring MVC 了解?</h3><p>谈到这个问题，我们不得不提提之前 Model1 和 Model2 这两个没有 Spring MVC 的时代。</p>
+<ul>
+<li><strong>Model1 时代</strong> : 很多学 Java 后端比较晚的朋友可能并没有接触过 Model1 模式下的 JavaWeb 应用开发。在 Model1 模式下，整个 Web 应用几乎全部用 JSP 页面组成，只用少量的 JavaBean 来处理数据库连接、访问等操作。这个模式下 JSP 既是控制层又是表现层。显而易见，这种模式存在很多问题。比如①将控制逻辑和表现逻辑混杂在一起，导致代码重用率极低；②前端和后端相互依赖，难以进行测试并且开发效率极低；</li>
+<li><strong>Model2 时代</strong> ：学过 Servlet 并做过相关 Demo 的朋友应该了解“Java Bean(Model)+ JSP（View,）+Servlet（Controller） ”这种开发模式,这就是早期的 JavaWeb MVC 开发模式。Model:系统涉及的数据，也就是 dao 和 bean。View：展示模型中的数据，只是用来展示。Controller：处理用户请求都发送给 ，返回数据给 JSP 并展示给用户。</li>
+</ul>
+<p>Model2 模式下还存在很多问题，Model2的抽象和封装程度还远远不够，使用Model2进行开发时不可避免地会重复造轮子，这就大大降低了程序的可维护性和复用性。于是很多JavaWeb开发相关的 MVC 框架应运而生比如Struts2，但是 Struts2 比较笨重。随着 Spring 轻量级开发框架的流行，Spring 生态圈出现了 Spring MVC 框架， Spring MVC 是当前最优秀的 MVC 框架。相比于 Struts2 ， Spring MVC 使用更加简单和方便，开发效率更高，并且 Spring MVC 运行速度更快。</p>
+<p>MVC 是一种设计模式,Spring MVC 是一款很优秀的 MVC 框架。Spring MVC 可以帮助我们进行更简洁的Web层的开发，并且它天生与 Spring 框架集成。Spring MVC 下我们一般把后端项目分为 Service层（处理业务）、Dao层（数据库操作）、Entity层（实体类）、Controller层(控制层，返回数据给前台页面)。</p>
+<p><strong>Spring MVC 的简单原理图如下：</strong></p>
+<p><a target="_blank" rel="noopener" href="https://camo.githubusercontent.com/5c267204e931f978620a0873cd47174bede05467a038b56036dc9314d5d6094f/687474703a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f31382d31302d31312f36303637393434342e6a7067"><img src="https://camo.githubusercontent.com/5c267204e931f978620a0873cd47174bede05467a038b56036dc9314d5d6094f/687474703a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f31382d31302d31312f36303637393434342e6a7067" alt="img"></a></p>
+<h3 id="6-2-SpringMVC-工作原理了解吗"><a href="#6-2-SpringMVC-工作原理了解吗" class="headerlink" title="6.2 SpringMVC 工作原理了解吗?"></a>6.2 SpringMVC 工作原理了解吗?</h3><p><strong>原理如下图所示：</strong> <a target="_blank" rel="noopener" href="https://camo.githubusercontent.com/5286b702ca4eb9f100758317e237e853d9579f8f4984d5ad468636d6db89b782/687474703a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f31382d31302d31312f34393739303238382e6a7067"><img src="https://camo.githubusercontent.com/5286b702ca4eb9f100758317e237e853d9579f8f4984d5ad468636d6db89b782/687474703a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f31382d31302d31312f34393739303238382e6a7067" alt="SpringMVC运行原理"></a></p>
+<p>上图的一个笔误的小问题：Spring MVC 的入口函数也就是前端控制器 <code>DispatcherServlet</code> 的作用是接收请求，响应结果。</p>
+<p><strong>流程说明（重要）：</strong></p>
+<ol>
+<li>客户端（浏览器）发送请求，直接请求到 <code>DispatcherServlet</code>。</li>
+<li><code>DispatcherServlet</code> 根据请求信息调用 <code>HandlerMapping</code>，解析请求对应的 <code>Handler</code>。</li>
+<li>解析到对应的 <code>Handler</code>（也就是我们平常说的 <code>Controller</code> 控制器）后，开始由 <code>HandlerAdapter</code> 适配器处理。</li>
+<li><code>HandlerAdapter</code> 会根据 <code>Handler </code>来调用真正的处理器来处理请求，并处理相应的业务逻辑。</li>
+<li>处理器处理完业务后，会返回一个 <code>ModelAndView</code> 对象，<code>Model</code> 是返回的数据对象，<code>View</code> 是个逻辑上的 <code>View</code>。</li>
+<li><code>ViewResolver</code> 会根据逻辑 <code>View</code> 查找实际的 <code>View</code>。</li>
+<li><code>DispaterServlet</code> 把返回的 <code>Model</code> 传给 <code>View</code>（视图渲染）。</li>
+<li>把 <code>View</code> 返回给请求者（浏览器）</li>
+</ol>
+<h2 id="7-Spring-框架中用到了哪些设计模式？"><a href="#7-Spring-框架中用到了哪些设计模式？" class="headerlink" title="7. Spring 框架中用到了哪些设计模式？"></a>7. Spring 框架中用到了哪些设计模式？</h2><p>关于下面一些设计模式的详细介绍，可以看笔主前段时间的原创文章<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=Mzg2OTA0Njk0OA==&mid=2247485303&idx=1&sn=9e4626a1e3f001f9b0d84a6fa0cff04a&chksm=cea248bcf9d5c1aaf48b67cc52bac74eb29d6037848d6cf213b0e5466f2d1fda970db700ba41&token=255050878&lang=zh_CN#rd">《面试官:“谈谈Spring中都用到了那些设计模式?”。》</a> 。</p>
+<ul>
+<li><strong>工厂设计模式</strong> : Spring使用工厂模式通过 <code>BeanFactory</code>、<code>ApplicationContext</code> 创建 bean 对象。</li>
+<li><strong>代理设计模式</strong> : Spring AOP 功能的实现。</li>
+<li><strong>单例设计模式</strong> : Spring 中的 Bean 默认都是单例的。</li>
+<li><strong>模板方法模式</strong> : Spring 中 <code>jdbcTemplate</code>、<code>hibernateTemplate</code> 等以 Template 结尾的对数据库操作的类，它们就使用到了模板模式。</li>
+<li><strong>包装器设计模式</strong> : 我们的项目需要连接多个数据库，而且不同的客户在每次访问中根据需要会去访问不同的数据库。这种模式让我们可以根据客户的需求能够动态切换不同的数据源。</li>
+<li><strong>观察者模式:</strong> Spring 事件驱动模型就是观察者模式很经典的一个应用。</li>
+<li><strong>适配器模式</strong> :Spring AOP 的增强或通知(Advice)使用到了适配器模式、spring MVC 中也是用到了适配器模式适配<code>Controller</code>。</li>
+<li>……</li>
+</ul>
+<h2 id="8-Spring-事务"><a href="#8-Spring-事务" class="headerlink" title="8. Spring 事务"></a>8. Spring 事务</h2><h3 id="8-1-Spring-管理事务的方式有几种？"><a href="#8-1-Spring-管理事务的方式有几种？" class="headerlink" title="8.1 Spring 管理事务的方式有几种？"></a>8.1 Spring 管理事务的方式有几种？</h3><ol>
+<li>编程式事务，在代码中硬编码。(不推荐使用)</li>
+<li>声明式事务，在配置文件中配置（推荐使用）</li>
+</ol>
+<p><strong>声明式事务又分为两种：</strong></p>
+<ol>
+<li>基于XML的声明式事务</li>
+<li>基于注解的声明式事务</li>
+</ol>
+<h3 id="8-2-Spring-事务中的隔离级别有哪几种"><a href="#8-2-Spring-事务中的隔离级别有哪几种" class="headerlink" title="8.2 Spring 事务中的隔离级别有哪几种?"></a>8.2 Spring 事务中的隔离级别有哪几种?</h3><p><strong>TransactionDefinition 接口中定义了五个表示隔离级别的常量：</strong></p>
+<ul>
+<li><strong>TransactionDefinition.ISOLATION_DEFAULT:</strong> 使用后端数据库默认的隔离级别，Mysql 默认采用的 REPEATABLE_READ隔离级别 Oracle 默认采用的 READ_COMMITTED隔离级别.</li>
+<li><strong>TransactionDefinition.ISOLATION_READ_UNCOMMITTED:</strong> 最低的隔离级别，允许读取尚未提交的数据变更，<strong>可能会导致脏读、幻读或不可重复读</strong></li>
+<li><strong>TransactionDefinition.ISOLATION_READ_COMMITTED:</strong> 允许读取并发事务已经提交的数据，<strong>可以阻止脏读，但是幻读或不可重复读仍有可能发生</strong></li>
+<li><strong>TransactionDefinition.ISOLATION_REPEATABLE_READ:</strong> 对同一字段的多次读取结果都是一致的，除非数据是被本身事务自己所修改，<strong>可以阻止脏读和不可重复读，但幻读仍有可能发生。</strong></li>
+<li><strong>TransactionDefinition.ISOLATION_SERIALIZABLE:</strong> 最高的隔离级别，完全服从ACID的隔离级别。所有的事务依次逐个执行，这样事务之间就完全不可能产生干扰，也就是说，<strong>该级别可以防止脏读、不可重复读以及幻读</strong>。但是这将严重影响程序的性能。通常情况下也不会用到该级别。</li>
+</ul>
+<h3 id="8-3-Spring-事务中哪几种事务传播行为"><a href="#8-3-Spring-事务中哪几种事务传播行为" class="headerlink" title="8.3 Spring 事务中哪几种事务传播行为?"></a>8.3 Spring 事务中哪几种事务传播行为?</h3><p><strong>支持当前事务的情况：</strong></p>
+<ul>
+<li><strong>TransactionDefinition.PROPAGATION_REQUIRED：</strong> 如果当前存在事务，则加入该事务；如果当前没有事务，则创建一个新的事务。</li>
+<li><strong>TransactionDefinition.PROPAGATION_SUPPORTS：</strong> 如果当前存在事务，则加入该事务；如果当前没有事务，则以非事务的方式继续运行。</li>
+<li><strong>TransactionDefinition.PROPAGATION_MANDATORY：</strong> 如果当前存在事务，则加入该事务；如果当前没有事务，则抛出异常。（mandatory：强制性）</li>
+</ul>
+<p><strong>不支持当前事务的情况：</strong></p>
+<ul>
+<li><strong>TransactionDefinition.PROPAGATION_REQUIRES_NEW：</strong> 创建一个新的事务，如果当前存在事务，则把当前事务挂起。</li>
+<li><strong>TransactionDefinition.PROPAGATION_NOT_SUPPORTED：</strong> 以非事务方式运行，如果当前存在事务，则把当前事务挂起。</li>
+<li><strong>TransactionDefinition.PROPAGATION_NEVER：</strong> 以非事务方式运行，如果当前存在事务，则抛出异常。</li>
+</ul>
+<p><strong>其他情况：</strong></p>
+<ul>
+<li><strong>TransactionDefinition.PROPAGATION_NESTED：</strong> 如果当前存在事务，则创建一个事务作为当前事务的嵌套事务来运行；如果当前没有事务，则该取值等价于TransactionDefinition.PROPAGATION_REQUIRED。</li>
+</ul>
+<h3 id="8-4-Transactional-rollbackFor-Exception-class-注解了解吗？"><a href="#8-4-Transactional-rollbackFor-Exception-class-注解了解吗？" class="headerlink" title="8.4 @Transactional(rollbackFor = Exception.class)注解了解吗？"></a>8.4 @Transactional(rollbackFor = Exception.class)注解了解吗？</h3><p>我们知道：Exception分为运行时异常RuntimeException和非运行时异常。事务管理对于企业应用来说是至关重要的，即使出现异常情况，它也可以保证数据的一致性。</p>
+<p>当<code>@Transactional</code>注解作用于类上时，该类的所有 public 方法将都具有该类型的事务属性，同时，我们也可以在方法级别使用该标注来覆盖类级别的定义。如果类或者方法加了这个注解，那么这个类里面的方法抛出异常，就会回滚，数据库里面的数据也会回滚。</p>
+<p>在<code>@Transactional</code>注解中如果不配置<code>rollbackFor</code>属性,那么事务只会在遇到<code>RuntimeException</code>的时候才会回滚,加上<code>rollbackFor=Exception.class</code>,可以让事务在遇到非运行时异常时也回滚。</p>
+<p>关于 <code>@Transactional </code>注解推荐阅读的文章：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/cn/java/j-master-spring-transactional-use/index.html">透彻的掌握 Spring 中@transactional 的使用</a></li>
+</ul>
+<h2 id="9-JPA"><a href="#9-JPA" class="headerlink" title="9. JPA"></a>9. JPA</h2><h3 id="9-1-如何使用JPA在数据库中非持久化一个字段？"><a href="#9-1-如何使用JPA在数据库中非持久化一个字段？" class="headerlink" title="9.1 如何使用JPA在数据库中非持久化一个字段？"></a>9.1 如何使用JPA在数据库中非持久化一个字段？</h3><p>假如我们有有下面一个类：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">Entity(name&#x3D;&quot;USER&quot;)</span><br><span class="line">public class User &#123;</span><br><span class="line">    </span><br><span class="line">    @Id</span><br><span class="line">    @GeneratedValue(strategy &#x3D; GenerationType.AUTO)</span><br><span class="line">    @Column(name &#x3D; &quot;ID&quot;)</span><br><span class="line">    private Long id;</span><br><span class="line">    </span><br><span class="line">    @Column(name&#x3D;&quot;USER_NAME&quot;)</span><br><span class="line">    private String userName;</span><br><span class="line">    </span><br><span class="line">    @Column(name&#x3D;&quot;PASSWORD&quot;)</span><br><span class="line">    private String password;</span><br><span class="line">  </span><br><span class="line">    private String secrect;</span><br><span class="line">  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果我们想让<code>secrect</code> 这个字段不被持久化，也就是不被数据库存储怎么办？我们可以采用下面几种方法：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">static String transient1; &#x2F;&#x2F; not persistent because of static</span><br><span class="line">final String transient2 &#x3D; “Satish”; &#x2F;&#x2F; not persistent because of final</span><br><span class="line">transient String transient3; &#x2F;&#x2F; not persistent because of transient</span><br><span class="line">@Transient</span><br><span class="line">String transient4; &#x2F;&#x2F; not persistent because of @Transient</span><br></pre></td></tr></table></figure>
+
+<p>一般使用后面两种方式比较多，我个人使用注解的方式比较多。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
+<li>《Spring 技术内幕》</li>
+<li><a target="_blank" rel="noopener" href="http://www.cnblogs.com/wmyskxz/p/8820371.html">http://www.cnblogs.com/wmyskxz/p/8820371.html</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.journaldev.com/2696/spring-interview-questions-and-answers">https://www.journaldev.com/2696/spring-interview-questions-and-answers</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.edureka.co/blog/interview-questions/spring-interview-questions/">https://www.edureka.co/blog/interview-questions/spring-interview-questions/</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.cnblogs.com/clwydjgs/p/9317849.html">https://www.cnblogs.com/clwydjgs/p/9317849.html</a></li>
+<li><a target="_blank" rel="noopener" href="https://howtodoinjava.com/interview-questions/top-spring-interview-questions-with-answers/">https://howtodoinjava.com/interview-questions/top-spring-interview-questions-with-answers/</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.tomaszezula.com/2014/02/09/spring-series-part-5-component-vs-bean/">http://www.tomaszezula.com/2014/02/09/spring-series-part-5-component-vs-bean/</a></li>
+<li><a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/34172888/difference-between-bean-and-autowired">https://stackoverflow.com/questions/34172888/difference-between-bean-and-autowired</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.interviewbit.com/spring-interview-questions/">https://www.interviewbit.com/spring-interview-questions/</a></li>
+</ul>
+<p>大家好，我是 Guide 哥，前段答应读者的 <strong>Spring 事务</strong>分析总结终于来了。这部分内容比较重要，不论是对于工作还是面试，但是网上比较好的参考资料比较少。</p>
+<p>如果本文有任何不对或者需要完善的地方，请帮忙指出！Guide 哥感激不尽！</p>
+<h2 id="1-什么是事务？"><a href="#1-什么是事务？" class="headerlink" title="1. 什么是事务？"></a>1. 什么是事务？</h2><p><strong>事务是逻辑上的一组操作，要么都执行，要么都不执行。</strong></p>
+<p><em>Guide 哥：大家应该都能背上面这句话了，下面我结合我们日常的真实开发来谈一谈。</em></p>
+<p>我们系统的每个业务方法可能包括了多个原子性的数据库操作，比如下面的 <code>savePerson()</code> 方法中就有两个原子性的数据库操作。这些原子性的数据库操作是有依赖的，它们要么都执行，要不就都不执行。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">public void savePerson() &#123;</span><br><span class="line">	personDao.save(person);</span><br><span class="line">	personDetailDao.save(personDetail);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>另外，需要格外注意的是：<strong>事务能否生效数据库引擎是否支持事务是关键。比如常用的 MySQL 数据库默认使用支持事务的<code>innodb</code>引擎。但是，如果把数据库引擎变为 <code>myisam</code>，那么程序也就不再支持事务了！</strong></p>
+<p>事务最经典也经常被拿出来说例子就是转账了。假如小明要给小红转账 1000 元，这个转账会涉及到两个关键操作就是：</p>
+<ol>
+<li>将小明的余额减少 1000 元</li>
+<li>将小红的余额增加 1000 元。</li>
+</ol>
+<p>万一在这两个操作之间突然出现错误比如银行系统崩溃或者网络故障，导致小明余额减少而小红的余额没有增加，这样就不对了。事务就是保证这两个关键操作要么都成功，要么都要失败。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">public class OrdersService &#123;</span><br><span class="line">	private AccountDao accountDao;</span><br><span class="line"></span><br><span class="line">	public void setOrdersDao(AccountDao accountDao) &#123;</span><br><span class="line">		this.accountDao &#x3D; accountDao;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">  @Transactional(propagation &#x3D; Propagation.REQUIRED,</span><br><span class="line">                isolation &#x3D; Isolation.DEFAULT, readOnly &#x3D; false, timeout &#x3D; -1)</span><br><span class="line">	public void accountMoney() &#123;</span><br><span class="line">    &#x2F;&#x2F;小红账户多1000</span><br><span class="line">		accountDao.addMoney(1000,xiaohong);</span><br><span class="line">		&#x2F;&#x2F;模拟突然出现的异常，比如银行中可能为突然停电等等</span><br><span class="line">    &#x2F;&#x2F;如果没有配置事务管理的话会造成，小红账户多了1000而小明账户没有少钱</span><br><span class="line">		int i &#x3D; 10 &#x2F; 0;</span><br><span class="line">		&#x2F;&#x2F;小王账户少1000</span><br><span class="line">		accountDao.reduceMoney(1000,xiaoming);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>另外，数据库事务的 ACID 四大特性是事务的基础，下面简单来了解一下。</p>
+<h2 id="2-事务的特性（ACID）了解么"><a href="#2-事务的特性（ACID）了解么" class="headerlink" title="2. 事务的特性（ACID）了解么?"></a>2. 事务的特性（ACID）了解么?</h2><p><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/images/spring-transaction/bda7231b-ab05-4e23-95ee-89ac90ac7fcf.png"><img src="https://github.com/Snailclimb/JavaGuide/raw/master/docs/system-design/framework/spring/images/spring-transaction/bda7231b-ab05-4e23-95ee-89ac90ac7fcf.png" alt="img"></a></p>
+<ul>
+<li><strong>原子性（Atomicity）：</strong> 一个事务（transaction）中的所有操作，或者全部完成，或者全部不完成，不会结束在中间某个环节。事务在执行过程中发生错误，会被回滚（Rollback）到事务开始前的状态，就像这个事务从来没有执行过一样。即，事务不可分割、不可约简。</li>
+<li><strong>一致性（Consistency）：</strong> 在事务开始之前和事务结束以后，数据库的完整性没有被破坏。这表示写入的资料必须完全符合所有的预设约束、触发器、级联回滚等。</li>
+<li><strong>隔离性（Isolation）：</strong> 数据库允许多个并发事务同时对其数据进行读写和修改的能力，隔离性可以防止多个事务并发执行时由于交叉执行而导致数据的不一致。事务隔离分为不同级别，包括未提交读（Read uncommitted）、提交读（read committed）、可重复读（repeatable read）和串行化（Serializable）。</li>
+<li><strong>持久性（Durability）:</strong> 事务处理结束后，对数据的修改就是永久的，即便系统故障也不会丢失。</li>
+</ul>
+<p>参考 ：<a target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/ACID">https://zh.wikipedia.org/wiki/ACID</a> 。</p>
+<h2 id="3-详谈-Spring-对事务的支持"><a href="#3-详谈-Spring-对事务的支持" class="headerlink" title="3. 详谈 Spring 对事务的支持"></a>3. 详谈 Spring 对事务的支持</h2><p><strong>再提醒一次：你的程序是否支持事务首先取决于数据库 ，比如使用 MySQL 的话，如果你选择的是 innodb 引擎，那么恭喜你，是可以支持事务的。但是，如果你的 MySQL 数据库使用的是 myisam 引擎的话，那不好意思，从根上就是不支持事务的。</strong></p>
+<p>这里再多提一下一个非常重要的知识点： <strong>MySQL 怎么保证原子性的？</strong></p>
+<p>我们知道如果想要保证事务的原子性，就需要在异常发生时，对已经执行的操作进行<strong>回滚</strong>，在 MySQL 中，恢复机制是通过 <strong>回滚日志（undo log）</strong> 实现的，所有事务进行的修改都会先先记录到这个回滚日志中，然后再执行相关的操作。如果执行过程中遇到异常的话，我们直接利用 <strong>回滚日志</strong> 中的信息将数据回滚到修改之前的样子即可！并且，回滚日志会先于数据持久化到磁盘上。这样就保证了即使遇到数据库突然宕机等情况，当用户再次启动数据库的时候，数据库还能够通过查询回滚日志来回滚将之前未完成的事务。</p>
+<h3 id="3-1-Spring-支持两种方式的事务管理"><a href="#3-1-Spring-支持两种方式的事务管理" class="headerlink" title="3.1. Spring 支持两种方式的事务管理"></a>3.1. Spring 支持两种方式的事务管理</h3><h4 id="1-编程式事务管理"><a href="#1-编程式事务管理" class="headerlink" title="1).编程式事务管理"></a>1).编程式事务管理</h4><p>通过 <code>TransactionTemplate</code>或者<code>TransactionManager</code>手动管理事务，实际应用中很少使用，但是对于你理解 Spring 事务管理原理有帮助。</p>
+<p>使用<code>TransactionTemplate</code> 进行编程式事务管理的示例代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">@Autowired</span><br><span class="line">private TransactionTemplate transactionTemplate;</span><br><span class="line">public void testTransaction() &#123;</span><br><span class="line"></span><br><span class="line">        transactionTemplate.execute(new TransactionCallbackWithoutResult() &#123;</span><br><span class="line">            @Override</span><br><span class="line">            protected void doInTransactionWithoutResult(TransactionStatus transactionStatus) &#123;</span><br><span class="line"></span><br><span class="line">                try &#123;</span><br><span class="line"></span><br><span class="line">                    &#x2F;&#x2F; ....  业务代码</span><br><span class="line">                &#125; catch (Exception e)&#123;</span><br><span class="line">                    &#x2F;&#x2F;回滚</span><br><span class="line">                    transactionStatus.setRollbackOnly();</span><br><span class="line">                &#125;</span><br><span class="line"></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用 <code>TransactionManager</code> 进行编程式事务管理的示例代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">@Autowired</span><br><span class="line">private PlatformTransactionManager transactionManager;</span><br><span class="line"></span><br><span class="line">public void testTransaction() &#123;</span><br><span class="line"></span><br><span class="line">  TransactionStatus status &#x3D; transactionManager.getTransaction(new DefaultTransactionDefinition());</span><br><span class="line">          try &#123;</span><br><span class="line">               &#x2F;&#x2F; ....  业务代码</span><br><span class="line">              transactionManager.commit(status);</span><br><span class="line">          &#125; catch (Exception e) &#123;</span><br><span class="line">              transactionManager.rollback(status);</span><br><span class="line">          &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="2-声明式事务管理"><a href="#2-声明式事务管理" class="headerlink" title="2)声明式事务管理"></a>2)声明式事务管理</h4><p>推荐使用（代码侵入性最小），实际是通过 AOP 实现（基于<code>@Transactional</code> 的全注解方式使用最多）。</p>
+<p>使用 <code>@Transactional</code>注解进行事务管理的示例代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">@Transactional(propagation&#x3D;propagation.PROPAGATION_REQUIRED)</span><br><span class="line">public void aMethod &#123;</span><br><span class="line">  &#x2F;&#x2F;do something</span><br><span class="line">  B b &#x3D; new B();</span><br><span class="line">  C c &#x3D; new C();</span><br><span class="line">  b.bMethod();</span><br><span class="line">  c.cMethod();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-2-Spring-事务管理接口介绍"><a href="#3-2-Spring-事务管理接口介绍" class="headerlink" title="3.2. Spring 事务管理接口介绍"></a>3.2. Spring 事务管理接口介绍</h3><p>Spring 框架中，事务管理相关最重要的 3 个接口如下：</p>
+<ul>
+<li>**<code>PlatformTransactionManager</code>**： （平台）事务管理器，Spring 事务策略的核心。</li>
+<li>**<code>TransactionDefinition</code>**： 事务定义信息(事务隔离级别、传播行为、超时、只读、回滚规则)。</li>
+<li>**<code>TransactionStatus</code>**： 事务运行状态。</li>
+</ul>
+<p>我们可以把 <strong><code>PlatformTransactionManager</code></strong> 接口可以被看作是事务上层的管理者，而 <strong><code>TransactionDefinition</code></strong> 和 <strong><code>TransactionStatus</code></strong> 这两个接口可以看作是事务的描述。</p>
+<p><strong><code>PlatformTransactionManager</code></strong> 会根据 <strong><code>TransactionDefinition</code></strong> 的定义比如事务超时时间、隔离级别、传播行为等来进行事务管理 ，而 <strong><code>TransactionStatus</code></strong> 接口则提供了一些方法来获取事务相应的状态比如是否新事务、是否可以回滚等等。</p>
+<h4 id="3-2-1-PlatformTransactionManager-事务管理接口"><a href="#3-2-1-PlatformTransactionManager-事务管理接口" class="headerlink" title="3.2.1. PlatformTransactionManager:事务管理接口"></a>3.2.1. PlatformTransactionManager:事务管理接口</h4><p><strong>Spring 并不直接管理事务，而是提供了多种事务管理器</strong> 。Spring 事务管理器的接口是： <strong><code>PlatformTransactionManager</code></strong> 。</p>
+<p>通过这个接口，Spring 为各个平台如 JDBC(<code>DataSourceTransactionManager</code>)、Hibernate(<code>HibernateTransactionManager</code>)、JPA(<code>JpaTransactionManager</code>)等都提供了对应的事务管理器，但是具体的实现就是各个平台自己的事情了。</p>
+<p><strong><code>PlatformTransactionManager</code> 接口的具体实现如下:</strong></p>
+<p><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/images/spring-transaction/ae964c2c-7289-441c-bddd-511161f51ee1.png"><img src="https://github.com/Snailclimb/JavaGuide/raw/master/docs/system-design/framework/spring/images/spring-transaction/ae964c2c-7289-441c-bddd-511161f51ee1.png" alt="img"></a></p>
+<p><code>PlatformTransactionManager</code>接口中定义了三个方法：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">package org.springframework.transaction;</span><br><span class="line"></span><br><span class="line">import org.springframework.lang.Nullable;</span><br><span class="line"></span><br><span class="line">public interface PlatformTransactionManager &#123;</span><br><span class="line">    &#x2F;&#x2F;获得事务</span><br><span class="line">    TransactionStatus getTransaction(@Nullable TransactionDefinition var1) throws TransactionException;</span><br><span class="line">    &#x2F;&#x2F;提交事务</span><br><span class="line">    void commit(TransactionStatus var1) throws TransactionException;</span><br><span class="line">    &#x2F;&#x2F;回滚事务</span><br><span class="line">    void rollback(TransactionStatus var1) throws TransactionException;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>这里多插一嘴。为什么要定义或者说抽象出来<code>PlatformTransactionManager</code>这个接口呢？</strong></p>
+<p>主要是因为要将事务管理行为抽象出来，然后不同的平台去实现它，这样我们可以保证提供给外部的行为不变，方便我们扩展。我前段时间分享过：<strong>“为什么我们要用接口？”</strong></p>
+<p><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/images/spring-transaction/%E6%8E%A5%E5%8F%A3%E4%BD%BF%E7%94%A8%E5%8E%9F%E5%9B%A0.png"><img src="https://github.com/Snailclimb/JavaGuide/raw/master/docs/system-design/framework/spring/images/spring-transaction/%E6%8E%A5%E5%8F%A3%E4%BD%BF%E7%94%A8%E5%8E%9F%E5%9B%A0.png" alt="img"></a></p>
+<h4 id="3-2-2-TransactionDefinition-事务属性"><a href="#3-2-2-TransactionDefinition-事务属性" class="headerlink" title="3.2.2. TransactionDefinition:事务属性"></a>3.2.2. TransactionDefinition:事务属性</h4><p>事务管理器接口 <strong><code>PlatformTransactionManager</code></strong> 通过 <strong><code>getTransaction(TransactionDefinition definition)</code></strong> 方法来得到一个事务，这个方法里面的参数是 <strong><code>TransactionDefinition</code></strong> 类 ，这个类就定义了一些基本的事务属性。</p>
+<p>那么什么是 <strong>事务属性</strong> 呢？</p>
+<p>事务属性可以理解成事务的一些基本配置，描述了事务策略如何应用到方法上。</p>
+<p>事务属性包含了 5 个方面：</p>
+<p><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/images/spring-transaction/a616b84d-9eea-4ad1-b4fc-461ff05e951d.png"><img src="https://github.com/Snailclimb/JavaGuide/raw/master/docs/system-design/framework/spring/images/spring-transaction/a616b84d-9eea-4ad1-b4fc-461ff05e951d.png" alt="img"></a></p>
+<p><code>TransactionDefinition</code> 接口中定义了 5 个方法以及一些表示事务属性的常量比如隔离级别、传播行为等等。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">package org.springframework.transaction;</span><br><span class="line"></span><br><span class="line">import org.springframework.lang.Nullable;</span><br><span class="line"></span><br><span class="line">public interface TransactionDefinition &#123;</span><br><span class="line">    int PROPAGATION_REQUIRED &#x3D; 0;</span><br><span class="line">    int PROPAGATION_SUPPORTS &#x3D; 1;</span><br><span class="line">    int PROPAGATION_MANDATORY &#x3D; 2;</span><br><span class="line">    int PROPAGATION_REQUIRES_NEW &#x3D; 3;</span><br><span class="line">    int PROPAGATION_NOT_SUPPORTED &#x3D; 4;</span><br><span class="line">    int PROPAGATION_NEVER &#x3D; 5;</span><br><span class="line">    int PROPAGATION_NESTED &#x3D; 6;</span><br><span class="line">    int ISOLATION_DEFAULT &#x3D; -1;</span><br><span class="line">    int ISOLATION_READ_UNCOMMITTED &#x3D; 1;</span><br><span class="line">    int ISOLATION_READ_COMMITTED &#x3D; 2;</span><br><span class="line">    int ISOLATION_REPEATABLE_READ &#x3D; 4;</span><br><span class="line">    int ISOLATION_SERIALIZABLE &#x3D; 8;</span><br><span class="line">    int TIMEOUT_DEFAULT &#x3D; -1;</span><br><span class="line">    &#x2F;&#x2F; 返回事务的传播行为，默认值为 REQUIRED。</span><br><span class="line">    int getPropagationBehavior();</span><br><span class="line">    &#x2F;&#x2F;返回事务的隔离级别，默认值是 DEFAULT</span><br><span class="line">    int getIsolationLevel();</span><br><span class="line">    &#x2F;&#x2F; 返回事务的超时时间，默认值为-1。如果超过该时间限制但事务还没有完成，则自动回滚事务。</span><br><span class="line">    int getTimeout();</span><br><span class="line">    &#x2F;&#x2F; 返回是否为只读事务，默认值为 false</span><br><span class="line">    boolean isReadOnly();</span><br><span class="line"></span><br><span class="line">    @Nullable</span><br><span class="line">    String getName();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="3-2-3-TransactionStatus-事务状态"><a href="#3-2-3-TransactionStatus-事务状态" class="headerlink" title="3.2.3. TransactionStatus:事务状态"></a>3.2.3. TransactionStatus:事务状态</h4><p><code>TransactionStatus</code>接口用来记录事务的状态 该接口定义了一组方法,用来获取或判断事务的相应状态信息。</p>
+<p><code>PlatformTransactionManager.getTransaction(…)</code>方法返回一个 <code>TransactionStatus</code> 对象。</p>
+<p><strong>TransactionStatus 接口接口内容如下：</strong></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">public interface TransactionStatus&#123;</span><br><span class="line">    boolean isNewTransaction(); &#x2F;&#x2F; 是否是新的事务</span><br><span class="line">    boolean hasSavepoint(); &#x2F;&#x2F; 是否有恢复点</span><br><span class="line">    void setRollbackOnly();  &#x2F;&#x2F; 设置为只回滚</span><br><span class="line">    boolean isRollbackOnly(); &#x2F;&#x2F; 是否为只回滚</span><br><span class="line">    boolean isCompleted; &#x2F;&#x2F; 是否已完成</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-3-事务属性详解"><a href="#3-3-事务属性详解" class="headerlink" title="3.3. 事务属性详解"></a>3.3. 事务属性详解</h3><p><em>实际业务开发中，大家一般都是使用 <code>@Transactional</code> 注解来开启事务，很多人并不清楚这个参数里面的参数是什么意思，有什么用。为了更好的在项目中使用事务管理，强烈推荐好好阅读一下下面的内容。</em></p>
+<h4 id="3-3-1-事务传播行为"><a href="#3-3-1-事务传播行为" class="headerlink" title="3.3.1. 事务传播行为"></a>3.3.1. 事务传播行为</h4><p><strong>事务传播行为是为了解决业务层方法之间互相调用的事务问题</strong>。</p>
+<p>当事务方法被另一个事务方法调用时，必须指定事务应该如何传播。例如：方法可能继续在现有事务中运行，也可能开启一个新事务，并在自己的事务中运行。</p>
+<p><strong>举个例子！</strong></p>
+<p>我们在 A 类的<code>aMethod（）</code>方法中调用了 B 类的 <code>bMethod()</code> 方法。这个时候就涉及到业务层方法之间互相调用的事务问题。如果我们的 <code>bMethod()</code>如果发生异常需要回滚，如何配置事务传播行为才能让 <code>aMethod()</code>也跟着回滚呢？这个时候就需要事务传播行为的知识了，如果你不知道的话一定要好好看一下。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">Class A &#123;</span><br><span class="line">    @Transactional(propagation&#x3D;propagation.xxx)</span><br><span class="line">    public void aMethod &#123;</span><br><span class="line">        &#x2F;&#x2F;do something</span><br><span class="line">        B b &#x3D; new B();</span><br><span class="line">        b.bMethod();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">Class B &#123;</span><br><span class="line">    @Transactional(propagation&#x3D;propagation.xxx)</span><br><span class="line">    public void bMethod &#123;</span><br><span class="line">       &#x2F;&#x2F;do something</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在<code>TransactionDefinition</code>定义中包括了如下几个表示传播行为的常量：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">public interface TransactionDefinition &#123;</span><br><span class="line">    int PROPAGATION_REQUIRED &#x3D; 0;</span><br><span class="line">    int PROPAGATION_SUPPORTS &#x3D; 1;</span><br><span class="line">    int PROPAGATION_MANDATORY &#x3D; 2;</span><br><span class="line">    int PROPAGATION_REQUIRES_NEW &#x3D; 3;</span><br><span class="line">    int PROPAGATION_NOT_SUPPORTED &#x3D; 4;</span><br><span class="line">    int PROPAGATION_NEVER &#x3D; 5;</span><br><span class="line">    int PROPAGATION_NESTED &#x3D; 6;</span><br><span class="line">    ......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>不过如此，为了方便使用，Spring 会相应地定义了一个枚举类：<code>Propagation</code></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">package org.springframework.transaction.annotation;</span><br><span class="line"></span><br><span class="line">import org.springframework.transaction.TransactionDefinition;</span><br><span class="line"></span><br><span class="line">public enum Propagation &#123;</span><br><span class="line"></span><br><span class="line">	REQUIRED(TransactionDefinition.PROPAGATION_REQUIRED),</span><br><span class="line"></span><br><span class="line">	SUPPORTS(TransactionDefinition.PROPAGATION_SUPPORTS),</span><br><span class="line"></span><br><span class="line">	MANDATORY(TransactionDefinition.PROPAGATION_MANDATORY),</span><br><span class="line"></span><br><span class="line">	REQUIRES_NEW(TransactionDefinition.PROPAGATION_REQUIRES_NEW),</span><br><span class="line"></span><br><span class="line">	NOT_SUPPORTED(TransactionDefinition.PROPAGATION_NOT_SUPPORTED),</span><br><span class="line"></span><br><span class="line">	NEVER(TransactionDefinition.PROPAGATION_NEVER),</span><br><span class="line"></span><br><span class="line">	NESTED(TransactionDefinition.PROPAGATION_NESTED);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">	private final int value;</span><br><span class="line"></span><br><span class="line">	Propagation(int value) &#123;</span><br><span class="line">		this.value &#x3D; value;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public int value() &#123;</span><br><span class="line">		return this.value;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>正确的事务传播行为可能的值如下</strong> ：</p>
+<p><strong>1.<code>TransactionDefinition.PROPAGATION_REQUIRED</code></strong></p>
+<p>使用的最多的一个事务传播行为，我们平时经常使用的<code>@Transactional</code>注解默认使用就是这个事务传播行为。如果当前存在事务，则加入该事务；如果当前没有事务，则创建一个新的事务。也就是说：</p>
+<ol>
+<li>如果外部方法没有开启事务的话，<code>Propagation.REQUIRED</code>修饰的内部方法会新开启自己的事务，且开启的事务相互独立，互不干扰。</li>
+<li>如果外部方法开启事务并且被<code>Propagation.REQUIRED</code>的话，所有<code>Propagation.REQUIRED</code>修饰的内部方法和外部方法均属于同一事务 ，只要一个方法回滚，整个事务均回滚。</li>
+</ol>
+<p>举个例子：如果我们上面的<code>aMethod()</code>和<code>bMethod()</code>使用的都是<code>PROPAGATION_REQUIRED</code>传播行为的话，两者使用的就是同一个事务，只要其中一个方法回滚，整个事务均回滚。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">Class A &#123;</span><br><span class="line">    @Transactional(propagation&#x3D;propagation.PROPAGATION_REQUIRED)</span><br><span class="line">    public void aMethod &#123;</span><br><span class="line">        &#x2F;&#x2F;do something</span><br><span class="line">        B b &#x3D; new B();</span><br><span class="line">        b.bMethod();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">Class B &#123;</span><br><span class="line">    @Transactional(propagation&#x3D;propagation.PROPAGATION_REQUIRED)</span><br><span class="line">    public void bMethod &#123;</span><br><span class="line">       &#x2F;&#x2F;do something</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong><code>2.TransactionDefinition.PROPAGATION_REQUIRES_NEW</code></strong></p>
+<p>创建一个新的事务，如果当前存在事务，则把当前事务挂起。也就是说不管外部方法是否开启事务，<code>Propagation.REQUIRES_NEW</code>修饰的内部方法会新开启自己的事务，且开启的事务相互独立，互不干扰。</p>
+<p>举个例子：如果我们上面的<code>bMethod()</code>使用<code>PROPAGATION_REQUIRES_NEW</code>事务传播行为修饰，<code>aMethod</code>还是用<code>PROPAGATION_REQUIRED</code>修饰的话。如果<code>aMethod()</code>发生异常回滚，<code>bMethod()</code>不会跟着回滚，因为 <code>bMethod()</code>开启了独立的事务。但是，如果 <code>bMethod()</code>抛出了未被捕获的异常并且这个异常满足事务回滚规则的话,<code>aMethod()</code>同样也会回滚，因为这个异常被 <code>aMethod()</code>的事务管理机制检测到了。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">Class A &#123;</span><br><span class="line">    @Transactional(propagation&#x3D;propagation.PROPAGATION_REQUIRED)</span><br><span class="line">    public void aMethod &#123;</span><br><span class="line">        &#x2F;&#x2F;do something</span><br><span class="line">        B b &#x3D; new B();</span><br><span class="line">        b.bMethod();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">Class B &#123;</span><br><span class="line">    @Transactional(propagation&#x3D;propagation.REQUIRES_NEW)</span><br><span class="line">    public void bMethod &#123;</span><br><span class="line">       &#x2F;&#x2F;do something</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>3.<code>TransactionDefinition.PROPAGATION_NESTED</code></strong>:</p>
+<p>如果当前存在事务，则创建一个事务作为当前事务的嵌套事务来运行；如果当前没有事务，则该取值等价于<code>TransactionDefinition.PROPAGATION_REQUIRED</code>。也就是说：</p>
+<ol>
+<li>在外部方法未开启事务的情况下<code>Propagation.NESTED</code>和<code>Propagation.REQUIRED</code>作用相同，修饰的内部方法都会新开启自己的事务，且开启的事务相互独立，互不干扰。</li>
+<li>如果外部方法开启事务的话，<code>Propagation.NESTED</code>修饰的内部方法属于外部事务的子事务，外部主事务回滚的话，子事务也会回滚，而内部子事务可以单独回滚而不影响外部主事务和其他子事务。</li>
+</ol>
+<p>这里还是简单举个例子：</p>
+<p>如果 <code>aMethod()</code> 回滚的话，<code>bMethod()</code>和<code>bMethod2()</code>都要回滚，而<code>bMethod()</code>回滚的话，并不会造成 <code>aMethod()</code> 和<code>bMethod()2</code>回滚。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">Class A &#123;</span><br><span class="line">    @Transactional(propagation&#x3D;propagation.PROPAGATION_REQUIRED)</span><br><span class="line">    public void aMethod &#123;</span><br><span class="line">        &#x2F;&#x2F;do something</span><br><span class="line">        B b &#x3D; new B();</span><br><span class="line">        b.bMethod();</span><br><span class="line">        b.bMethod2();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">Class B &#123;</span><br><span class="line">    @Transactional(propagation&#x3D;propagation.PROPAGATION_NESTED)</span><br><span class="line">    public void bMethod &#123;</span><br><span class="line">       &#x2F;&#x2F;do something</span><br><span class="line">    &#125;</span><br><span class="line">    @Transactional(propagation&#x3D;propagation.PROPAGATION_NESTED)</span><br><span class="line">    public void bMethod2 &#123;</span><br><span class="line">       &#x2F;&#x2F;do something</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>4.<code>TransactionDefinition.PROPAGATION_MANDATORY</code></strong></p>
+<p>如果当前存在事务，则加入该事务；如果当前没有事务，则抛出异常。（mandatory：强制性）</p>
+<p>这个使用的很少，就不举例子来说了。</p>
+<p><strong>若是错误的配置以下 3 种事务传播行为，事务将不会发生回滚，这里不对照案例讲解了，使用的很少。</strong></p>
+<ul>
+<li><strong><code>TransactionDefinition.PROPAGATION_SUPPORTS</code></strong>: 如果当前存在事务，则加入该事务；如果当前没有事务，则以非事务的方式继续运行。</li>
+<li><strong><code>TransactionDefinition.PROPAGATION_NOT_SUPPORTED</code></strong>: 以非事务方式运行，如果当前存在事务，则把当前事务挂起。</li>
+<li><strong><code>TransactionDefinition.PROPAGATION_NEVER</code></strong>: 以非事务方式运行，如果当前存在事务，则抛出异常。</li>
+</ul>
+<p>更多关于事务传播行为的内容请看这篇文章：<a target="_blank" rel="noopener" href="http://mp.weixin.qq.com/s?__biz=Mzg2OTA0Njk0OA==&mid=2247486668&idx=2&sn=0381e8c836442f46bdc5367170234abb&chksm=cea24307f9d5ca11c96943b3ccfa1fc70dc97dd87d9c540388581f8fe6d805ff548dff5f6b5b&token=1776990505&lang=zh_CN#rd">《太难了~面试官让我结合案例讲讲自己对 Spring 事务传播行为的理解。》</a></p>
+<h4 id="3-3-2-事务隔离级别"><a href="#3-3-2-事务隔离级别" class="headerlink" title="3.3.2 事务隔离级别"></a>3.3.2 事务隔离级别</h4><p><code>TransactionDefinition</code> 接口中定义了五个表示隔离级别的常量：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">public interface TransactionDefinition &#123;</span><br><span class="line">    ......</span><br><span class="line">    int ISOLATION_DEFAULT &#x3D; -1;</span><br><span class="line">    int ISOLATION_READ_UNCOMMITTED &#x3D; 1;</span><br><span class="line">    int ISOLATION_READ_COMMITTED &#x3D; 2;</span><br><span class="line">    int ISOLATION_REPEATABLE_READ &#x3D; 4;</span><br><span class="line">    int ISOLATION_SERIALIZABLE &#x3D; 8;</span><br><span class="line">    ......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>和事务传播行为这块一样，为了方便使用，Spring 也相应地定义了一个枚举类：<code>Isolation</code></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">public enum Isolation &#123;</span><br><span class="line"></span><br><span class="line">	DEFAULT(TransactionDefinition.ISOLATION_DEFAULT),</span><br><span class="line"></span><br><span class="line">	READ_UNCOMMITTED(TransactionDefinition.ISOLATION_READ_UNCOMMITTED),</span><br><span class="line"></span><br><span class="line">	READ_COMMITTED(TransactionDefinition.ISOLATION_READ_COMMITTED),</span><br><span class="line"></span><br><span class="line">	REPEATABLE_READ(TransactionDefinition.ISOLATION_REPEATABLE_READ),</span><br><span class="line"></span><br><span class="line">	SERIALIZABLE(TransactionDefinition.ISOLATION_SERIALIZABLE);</span><br><span class="line"></span><br><span class="line">	private final int value;</span><br><span class="line"></span><br><span class="line">	Isolation(int value) &#123;</span><br><span class="line">		this.value &#x3D; value;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public int value() &#123;</span><br><span class="line">		return this.value;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>下面我依次对每一种事务隔离级别进行介绍：</p>
+<ul>
+<li><strong><code>TransactionDefinition.ISOLATION_DEFAULT</code></strong> :使用后端数据库默认的隔离级别，MySQL 默认采用的 <code>REPEATABLE_READ</code> 隔离级别 Oracle 默认采用的 <code>READ_COMMITTED</code> 隔离级别.</li>
+<li><strong><code>TransactionDefinition.ISOLATION_READ_UNCOMMITTED</code></strong> :最低的隔离级别，使用这个隔离级别很少，因为它允许读取尚未提交的数据变更，<strong>可能会导致脏读、幻读或不可重复读</strong></li>
+<li><strong><code>TransactionDefinition.ISOLATION_READ_COMMITTED</code></strong> : 允许读取并发事务已经提交的数据，<strong>可以阻止脏读，但是幻读或不可重复读仍有可能发生</strong></li>
+<li><strong><code>TransactionDefinition.ISOLATION_REPEATABLE_READ</code></strong> : 对同一字段的多次读取结果都是一致的，除非数据是被本身事务自己所修改，<strong>可以阻止脏读和不可重复读，但幻读仍有可能发生。</strong></li>
+<li><strong><code>TransactionDefinition.ISOLATION_SERIALIZABLE</code></strong> : 最高的隔离级别，完全服从 ACID 的隔离级别。所有的事务依次逐个执行，这样事务之间就完全不可能产生干扰，也就是说，<strong>该级别可以防止脏读、不可重复读以及幻读</strong>。但是这将严重影响程序的性能。通常情况下也不会用到该级别。</li>
+</ul>
+<p>因为平时使用 MySQL 数据库比较多，这里再多提一嘴！</p>
+<p>MySQL InnoDB 存储引擎的默认支持的隔离级别是 <strong><code>REPEATABLE-READ</code>（可重读）</strong>。我们可以通过<code>SELECT @@tx_isolation;</code>命令来查看，MySQL 8.0 该命令改为<code>SELECT @@transaction_isolation;</code>：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SELECT @@tx_isolation;</span><br><span class="line">+-----------------+</span><br><span class="line">| @@tx_isolation  |</span><br><span class="line">+-----------------+</span><br><span class="line">| REPEATABLE-READ |</span><br><span class="line">+-----------------+</span><br></pre></td></tr></table></figure>
+
+<p>这里需要注意的是：与 SQL 标准不同的地方在于 InnoDB 存储引擎在 <strong><code>REPEATABLE-READ</code>（可重读）</strong> 事务隔离级别下使用的是 Next-Key Lock 锁算法，因此可以避免幻读的产生，这与其他数据库系统(如 SQL Server)是不同的。所以说 InnoDB 存储引擎的默认支持的隔离级别是 <strong><code>REPEATABLE-READ</code>（可重读）</strong> 已经可以完全保证事务的隔离性要求，即达到了 SQL 标准的 <strong><code>SERIALIZABLE</code>(可串行化)</strong> 隔离级别。</p>
+<p>因为隔离级别越低，事务请求的锁越少，所以大部分数据库系统的隔离级别都是 <strong><code>READ-COMMITTED</code>(读取提交内容)</strong> :，但是你要知道的是 InnoDB 存储引擎默认使用 <strong><code>REPEATABLE-READ</code>（可重读）</strong> 并不会什么任何性能上的损失。</p>
+<p>更多关于事务隔离级别的内容请看：</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=Mzg2OTA0Njk0OA==&mid=2247485085&idx=1&sn=01e5c29c49f32886bc897af7632b34ba&chksm=cea24956f9d5c040a07e4d335219f11f888a2d32444c16cade3f69c294ae0a1e416bcd221fb6&token=1613452699&lang=zh_CN&scene=21#wechat_redirect">《一文带你轻松搞懂事务隔离级别(图文详解)》</a></li>
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=Mzg2OTA0Njk0OA==&mid=2247486625&idx=2&sn=e235dab2757739438b8f33d205a9327f&chksm=cea2436af9d5ca7c9a1a8db9d020f71205687beca23ac958f9c9a711ee0185cab30173ad2b1a&token=1776990505&lang=zh_CN#rd">面试官：你说对 MySQL 事务很熟？那我问你 10 个问题</a></li>
+</ol>
+<h4 id="3-3-3-事务超时属性"><a href="#3-3-3-事务超时属性" class="headerlink" title="3.3.3. 事务超时属性"></a>3.3.3. 事务超时属性</h4><p>所谓事务超时，就是指一个事务所允许执行的最长时间，如果超过该时间限制但事务还没有完成，则自动回滚事务。在 <code>TransactionDefinition</code> 中以 int 的值来表示超时时间，其单位是秒，默认值为-1。</p>
+<h4 id="3-3-3-事务只读属性"><a href="#3-3-3-事务只读属性" class="headerlink" title="3.3.3. 事务只读属性"></a>3.3.3. 事务只读属性</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">package org.springframework.transaction;</span><br><span class="line"></span><br><span class="line">import org.springframework.lang.Nullable;</span><br><span class="line"></span><br><span class="line">public interface TransactionDefinition &#123;</span><br><span class="line">    ......</span><br><span class="line">    &#x2F;&#x2F; 返回是否为只读事务，默认值为 false</span><br><span class="line">    boolean isReadOnly();</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>对于只有读取数据查询的事务，可以指定事务类型为 readonly，即只读事务。只读事务不涉及数据的修改，数据库会提供一些优化手段，适合用在有多条数据库查询操作的方法中。</p>
+<p>很多人就会疑问了，为什么我一个数据查询操作还要启用事务支持呢？</p>
+<p>拿 MySQL 的 innodb 举例子，根据官网 <a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/5.7/en/innodb-autocommit-commit-rollback.html">https://dev.mysql.com/doc/refman/5.7/en/innodb-autocommit-commit-rollback.html</a> 描述：</p>
+<blockquote>
+<p>MySQL 默认对每一个新建立的连接都启用了<code>autocommit</code>模式。在该模式下，每一个发送到 MySQL 服务器的<code>sql</code>语句都会在一个单独的事务中进行处理，执行结束后会自动提交事务，并开启一个新的事务。</p>
+</blockquote>
+<p>但是，如果你给方法加上了<code>Transactional</code>注解的话，这个方法执行的所有<code>sql</code>会被放在一个事务中。如果声明了只读事务的话，数据库就会去优化它的执行，并不会带来其他的什么收益。</p>
+<p>如果不加<code>Transactional</code>，每条<code>sql</code>会开启一个单独的事务，中间被其它事务改了数据，都会实时读取到最新值。</p>
+<p>分享一下关于事务只读属性，其他人的解答：</p>
+<ol>
+<li>如果你一次执行单条查询语句，则没有必要启用事务支持，数据库默认支持 SQL 执行期间的读一致性；</li>
+<li>如果你一次执行多条查询语句，例如统计查询，报表查询，在这种场景下，多条查询 SQL 必须保证整体的读一致性，否则，在前条 SQL 查询之后，后条 SQL 查询之前，数据被其他用户改变，则该次整体的统计查询将会出现读数据不一致的状态，此时，应该启用事务支持</li>
+</ol>
+<h4 id="3-3-4-事务回滚规则"><a href="#3-3-4-事务回滚规则" class="headerlink" title="3.3.4. 事务回滚规则"></a>3.3.4. 事务回滚规则</h4><p>这些规则定义了哪些异常会导致事务回滚而哪些不会。默认情况下，事务只有遇到运行期异常（RuntimeException 的子类）时才会回滚，Error 也会导致事务回滚，但是，在遇到检查型（Checked）异常时不会回滚。</p>
+<p><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/images/spring-transaction/f6c6f0aa-0f26-49e1-84b3-7f838c7379d1.png"><img src="https://github.com/Snailclimb/JavaGuide/raw/master/docs/system-design/framework/spring/images/spring-transaction/f6c6f0aa-0f26-49e1-84b3-7f838c7379d1.png" alt="img"></a></p>
+<p>如果你想要回滚你定义的特定的异常类型的话，可以这样：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">@Transactional(rollbackFor&#x3D; MyException.class)</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-4-Transactional-注解使用详解"><a href="#3-4-Transactional-注解使用详解" class="headerlink" title="3.4. @Transactional 注解使用详解"></a>3.4. @Transactional 注解使用详解</h3><h4 id="1-Transactional-的作用范围"><a href="#1-Transactional-的作用范围" class="headerlink" title="1) @Transactional 的作用范围"></a>1) <code>@Transactional</code> 的作用范围</h4><ol>
+<li><strong>方法</strong> ：推荐将注解使用于方法上，不过需要注意的是：<strong>该注解只能应用到 public 方法上，否则不生效。</strong></li>
+<li><strong>类</strong> ：如果这个注解使用在类上的话，表明该注解对该类中所有的 public 方法都生效。</li>
+<li><strong>接口</strong> ：不推荐在接口上使用。</li>
+</ol>
+<h4 id="2-Transactional-的常用配置参数"><a href="#2-Transactional-的常用配置参数" class="headerlink" title="2) @Transactional 的常用配置参数"></a>2) <code>@Transactional</code> 的常用配置参数</h4><p><code>@Transactional</code>注解源码如下，里面包含了基本事务属性的配置：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">@Target(&#123;ElementType.TYPE, ElementType.METHOD&#125;)</span><br><span class="line">@Retention(RetentionPolicy.RUNTIME)</span><br><span class="line">@Inherited</span><br><span class="line">@Documented</span><br><span class="line">public @interface Transactional &#123;</span><br><span class="line"></span><br><span class="line">	@AliasFor(&quot;transactionManager&quot;)</span><br><span class="line">	String value() default &quot;&quot;;</span><br><span class="line"></span><br><span class="line">	@AliasFor(&quot;value&quot;)</span><br><span class="line">	String transactionManager() default &quot;&quot;;</span><br><span class="line"></span><br><span class="line">	Propagation propagation() default Propagation.REQUIRED;</span><br><span class="line"></span><br><span class="line">	Isolation isolation() default Isolation.DEFAULT;</span><br><span class="line"></span><br><span class="line">	int timeout() default TransactionDefinition.TIMEOUT_DEFAULT;</span><br><span class="line"></span><br><span class="line">	boolean readOnly() default false;</span><br><span class="line"></span><br><span class="line">	Class&lt;? extends Throwable&gt;[] rollbackFor() default &#123;&#125;;</span><br><span class="line"></span><br><span class="line">	String[] rollbackForClassName() default &#123;&#125;;</span><br><span class="line"></span><br><span class="line">	Class&lt;? extends Throwable&gt;[] noRollbackFor() default &#123;&#125;;</span><br><span class="line"></span><br><span class="line">	String[] noRollbackForClassName() default &#123;&#125;;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong><code>@Transactional</code> 的常用配置参数总结（只列巨额 5 个我平时比较常用的）：</strong></p>
+<table>
+<thead>
+<tr>
+<th>属性名</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>propagation</td>
+<td>事务的传播行为，默认值为 REQUIRED，可选的值在上面介绍过</td>
+</tr>
+<tr>
+<td>isolation</td>
+<td>事务的隔离级别，默认值采用 DEFAULT，可选的值在上面介绍过</td>
+</tr>
+<tr>
+<td>timeout</td>
+<td>事务的超时时间，默认值为-1（不会超时）。如果超过该时间限制但事务还没有完成，则自动回滚事务。</td>
+</tr>
+<tr>
+<td>readOnly</td>
+<td>指定事务是否为只读事务，默认值为 false。</td>
+</tr>
+<tr>
+<td>rollbackFor</td>
+<td>用于指定能够触发事务回滚的异常类型，并且可以指定多个异常类型。</td>
+</tr>
+</tbody></table>
+<h4 id="3-Transactional-事务注解原理"><a href="#3-Transactional-事务注解原理" class="headerlink" title="3)@Transactional 事务注解原理"></a>3)<code>@Transactional</code> 事务注解原理</h4><p>面试中在问 AOP 的时候可能会被问到的一个问题。简单说下吧！</p>
+<p>我们知道，**<code>@Transactional</code> 的工作机制是基于 AOP 实现的，AOP 又是使用动态代理实现的。如果目标对象实现了接口，默认情况下会采用 JDK 的动态代理，如果目标对象没有实现了接口,会使用 CGLIB 动态代理。**</p>
+<p>多提一嘴：<code>createAopProxy()</code> 方法 决定了是使用 JDK 还是 Cglib 来做动态代理，源码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">public class DefaultAopProxyFactory implements AopProxyFactory, Serializable &#123;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public AopProxy createAopProxy(AdvisedSupport config) throws AopConfigException &#123;</span><br><span class="line">		if (config.isOptimize() || config.isProxyTargetClass() || hasNoUserSuppliedProxyInterfaces(config)) &#123;</span><br><span class="line">			Class&lt;?&gt; targetClass &#x3D; config.getTargetClass();</span><br><span class="line">			if (targetClass &#x3D;&#x3D; null) &#123;</span><br><span class="line">				throw new AopConfigException(&quot;TargetSource cannot determine target class: &quot; +</span><br><span class="line">						&quot;Either an interface or a target is required for proxy creation.&quot;);</span><br><span class="line">			&#125;</span><br><span class="line">			if (targetClass.isInterface() || Proxy.isProxyClass(targetClass)) &#123;</span><br><span class="line">				return new JdkDynamicAopProxy(config);</span><br><span class="line">			&#125;</span><br><span class="line">			return new ObjenesisCglibAopProxy(config);</span><br><span class="line">		&#125;</span><br><span class="line">		else &#123;</span><br><span class="line">			return new JdkDynamicAopProxy(config);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">  .......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果一个类或者一个类中的 public 方法上被标注<code>@Transactional</code> 注解的话，Spring 容器就会在启动的时候为其创建一个代理类，在调用被<code>@Transactional</code> 注解的 public 方法的时候，实际调用的是，<code>TransactionInterceptor</code> 类中的 <code>invoke()</code>方法。这个方法的作用就是在目标方法之前开启事务，方法执行过程中如果遇到异常的时候回滚事务，方法调用完成之后提交事务。</p>
+<blockquote>
+<p><code>TransactionInterceptor</code> 类中的 <code>invoke()</code>方法内部实际调用的是 <code>TransactionAspectSupport</code> 类的 <code>invokeWithinTransaction()</code>方法。由于新版本的 Spring 对这部分重写很大，而且用到了很多响应式编程的知识，这里就不列源码了。</p>
+</blockquote>
+<h4 id="4-Spring-AOP-自调用问题"><a href="#4-Spring-AOP-自调用问题" class="headerlink" title="4)Spring AOP 自调用问题"></a>4)Spring AOP 自调用问题</h4><p>若同一类中的其他没有 <code>@Transactional</code> 注解的方法内部调用有 <code>@Transactional</code> 注解的方法，有<code>@Transactional</code> 注解的方法的事务会失效。</p>
+<p>这是由于<code>Spring AOP</code>代理的原因造成的，因为只有当 <code>@Transactional</code> 注解的方法在类以外被调用的时候，Spring 事务管理才生效。</p>
+<p><code>MyService</code> 类中的<code>method1()</code>调用<code>method2()</code>就会导致<code>method2()</code>的事务失效。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">@Service</span><br><span class="line">public class MyService &#123;</span><br><span class="line"></span><br><span class="line">private void method1() &#123;</span><br><span class="line">     method2();</span><br><span class="line">     &#x2F;&#x2F;......</span><br><span class="line">&#125;</span><br><span class="line">@Transactional</span><br><span class="line"> public void method2() &#123;</span><br><span class="line">     &#x2F;&#x2F;......</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>解决办法就是避免同一类中自调用或者使用 AspectJ 取代 Spring AOP 代理。</p>
+<h4 id="5-Transactional-的使用注意事项总结"><a href="#5-Transactional-的使用注意事项总结" class="headerlink" title="5) @Transactional 的使用注意事项总结"></a>5) <code>@Transactional</code> 的使用注意事项总结</h4><ol>
+<li><code>@Transactional</code> 注解只有作用到 public 方法上事务才生效，不推荐在接口上使用；</li>
+<li>避免同一个类中调用 <code>@Transactional</code> 注解的方法，这样会导致事务失效；</li>
+<li>正确的设置 <code>@Transactional</code> 的 rollbackFor 和 propagation 属性，否则事务可能会回滚失败</li>
+<li>……</li>
+</ol>
+<h2 id="4-Reference"><a href="#4-Reference" class="headerlink" title="4. Reference"></a>4. Reference</h2><ol>
+<li>[总结]Spring 事务管理中@Transactional 的参数:<a target="_blank" rel="noopener" href="http://www.mobabel.net/spring%E4%BA%8B%E5%8A%A1%E7%AE%A1%E7%90%86%E4%B8%ADtransactional%E7%9A%84%E5%8F%82%E6%95%B0/">http://www.mobabel.net/spring 事务管理中 transactional 的参数/</a></li>
+<li>Spring 官方文档：<a target="_blank" rel="noopener" href="https://docs.spring.io/spring/docs/4.2.x/spring-framework-reference/html/transaction.html">https://docs.spring.io/spring/docs/4.2.x/spring-framework-reference/html/transaction.html</a></li>
+<li>《Spring5 高级编程》</li>
+<li>透彻的掌握 Spring 中@transactional 的使用: <a target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/cn/java/j-master-spring-transactional-use/index.html">https://www.ibm.com/developerworks/cn/java/j-master-spring-transactional-use/index.html</a></li>
+<li>Spring 事务的传播特性：<a href="https://github.com/love-somnus/Spring/wiki/Spring%E4%BA%8B%E5%8A%A1%E7%9A%84%E4%BC%A0%E6%92%AD%E7%89%B9%E6%80%A7">https://github.com/love-somnus/Spring/wiki/Spring 事务的传播特性</a></li>
+<li><a target="_blank" rel="noopener" href="https://segmentfault.com/a/1190000013341344">Spring 事务传播行为详解</a> ：<a target="_blank" rel="noopener" href="https://segmentfault.com/a/1190000013341344">https://segmentfault.com/a/1190000013341344</a></li>
+<li>全面分析 Spring 的编程式事务管理及声明式事务管理：<a target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/cn/education/opensource/os-cn-spring-trans/index.html">https://www.ibm.com/developerworks/cn/education/opensource/os-cn-spring-trans/index.html</a></li>
+</ol>
+<p>点击关注<a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/Spring-Design-Patterns.md#%E5%85%AC%E4%BC%97%E5%8F%B7">公众号</a>及时获取笔主最新更新文章，并可免费领取本文档配套的《Java面试突击》以及Java工程师必备学习资源。</p>
+<ul>
+<li><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/Spring-Design-Patterns.md#%E6%8E%A7%E5%88%B6%E5%8F%8D%E8%BD%ACioc%E5%92%8C%E4%BE%9D%E8%B5%96%E6%B3%A8%E5%85%A5di">控制反转(IoC)和依赖注入(DI)</a></li>
+<li><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/Spring-Design-Patterns.md#%E5%B7%A5%E5%8E%82%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F">工厂设计模式</a></li>
+<li><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/Spring-Design-Patterns.md#%E5%8D%95%E4%BE%8B%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F">单例设计模式</a></li>
+<li>代理设计模式<ul>
+<li><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/Spring-Design-Patterns.md#%E4%BB%A3%E7%90%86%E6%A8%A1%E5%BC%8F%E5%9C%A8-aop-%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8">代理模式在 AOP 中的应用</a></li>
+<li><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/Spring-Design-Patterns.md#spring-aop-%E5%92%8C-aspectj-aop-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB">Spring AOP 和 AspectJ AOP 有什么区别?</a></li>
+</ul>
+</li>
+<li><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/Spring-Design-Patterns.md#%E6%A8%A1%E6%9D%BF%E6%96%B9%E6%B3%95">模板方法</a></li>
+<li>观察者模式<ul>
+<li>Spring 事件驱动模型中的三种角色<ul>
+<li><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/Spring-Design-Patterns.md#%E4%BA%8B%E4%BB%B6%E8%A7%92%E8%89%B2">事件角色</a></li>
+<li><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/Spring-Design-Patterns.md#%E4%BA%8B%E4%BB%B6%E7%9B%91%E5%90%AC%E8%80%85%E8%A7%92%E8%89%B2">事件监听者角色</a></li>
+<li><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/Spring-Design-Patterns.md#%E4%BA%8B%E4%BB%B6%E5%8F%91%E5%B8%83%E8%80%85%E8%A7%92%E8%89%B2">事件发布者角色</a></li>
+</ul>
+</li>
+<li><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/Spring-Design-Patterns.md#spring-%E7%9A%84%E4%BA%8B%E4%BB%B6%E6%B5%81%E7%A8%8B%E6%80%BB%E7%BB%93">Spring 的事件流程总结</a></li>
+</ul>
+</li>
+<li>适配器模式<ul>
+<li><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/Spring-Design-Patterns.md#spring-aop%E4%B8%AD%E7%9A%84%E9%80%82%E9%85%8D%E5%99%A8%E6%A8%A1%E5%BC%8F">spring AOP中的适配器模式</a></li>
+<li><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/Spring-Design-Patterns.md#spring-mvc%E4%B8%AD%E7%9A%84%E9%80%82%E9%85%8D%E5%99%A8%E6%A8%A1%E5%BC%8F">spring MVC中的适配器模式</a></li>
+</ul>
+</li>
+<li><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/Spring-Design-Patterns.md#%E8%A3%85%E9%A5%B0%E8%80%85%E6%A8%A1%E5%BC%8F">装饰者模式</a></li>
+<li><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/Spring-Design-Patterns.md#%E6%80%BB%E7%BB%93">总结</a></li>
+<li><a href="https://github.com/Snailclimb/JavaGuide/blob/master/docs/system-design/framework/spring/Spring-Design-Patterns.md#%E5%8F%82%E8%80%83">参考</a></li>
+</ul>
+<p>JDK 中用到了那些设计模式?Spring 中用到了那些设计模式?这两个问题，在面试中比较常见。我在网上搜索了一下关于 Spring 中设计模式的讲解几乎都是千篇一律，而且大部分都年代久远。所以，花了几天时间自己总结了一下，由于我的个人能力有限，文中如有任何错误各位都可以指出。另外，文章篇幅有限，对于设计模式以及一些源码的解读我只是一笔带过，这篇文章的主要目的是回顾一下 Spring 中的设计模式。</p>
+<p>Design Patterns(设计模式) 表示面向对象软件开发中最好的计算机编程实践。 Spring 框架中广泛使用了不同类型的设计模式，下面我们来看看到底有哪些设计模式?</p>
+<h2 id="控制反转-IoC-和依赖注入-DI"><a href="#控制反转-IoC-和依赖注入-DI" class="headerlink" title="控制反转(IoC)和依赖注入(DI)"></a>控制反转(IoC)和依赖注入(DI)</h2><p><strong>IoC(Inversion of Control,控制反转)</strong> 是Spring 中一个非常非常重要的概念，它不是什么技术，而是一种解耦的设计思想。它的主要目的是借助于“第三方”(Spring 中的 IOC 容器) 实现具有依赖关系的对象之间的解耦(IOC容器管理对象，你只管使用即可)，从而降低代码之间的耦合度。<strong>IOC 是一个原则，而不是一个模式，以下模式（但不限于）实现了IoC原则。</strong></p>
+<p><a target="_blank" rel="noopener" href="https://camo.githubusercontent.com/92e6f17f500f63a340b52ef769384a924eff1bc414b16f5f2a663f38326c11e0/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f696f632d7061747465726e732e706e67"><img src="https://camo.githubusercontent.com/92e6f17f500f63a340b52ef769384a924eff1bc414b16f5f2a663f38326c11e0/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f696f632d7061747465726e732e706e67" alt="ioc-patterns"></a></p>
+<p><strong>Spring IOC 容器就像是一个工厂一样，当我们需要创建一个对象的时候，只需要配置好配置文件/注解即可，完全不用考虑对象是如何被创建出来的。</strong> IOC 容器负责创建对象，将对象连接在一起，配置这些对象，并从创建中处理这些对象的整个生命周期，直到它们被完全销毁。</p>
+<p>在实际项目中一个 Service 类如果有几百甚至上千个类作为它的底层，我们需要实例化这个 Service，你可能要每次都要搞清这个 Service 所有底层类的构造函数，这可能会把人逼疯。如果利用 IOC 的话，你只需要配置好，然后在需要的地方引用就行了，这大大增加了项目的可维护性且降低了开发难度。关于Spring IOC 的理解，推荐看这一下知乎的一个回答：<a target="_blank" rel="noopener" href="https://www.zhihu.com/question/23277575/answer/169698662">https://www.zhihu.com/question/23277575/answer/169698662</a> ，非常不错。</p>
+<p><strong>控制反转怎么理解呢?</strong> 举个例子：”对象a 依赖了对象 b，当对象 a 需要使用 对象 b的时候必须自己去创建。但是当系统引入了 IOC 容器后， 对象a 和对象 b 之前就失去了直接的联系。这个时候，当对象 a 需要使用 对象 b的时候， 我们可以指定 IOC 容器去创建一个对象b注入到对象 a 中”。 对象 a 获得依赖对象 b 的过程,由主动行为变为了被动行为，控制权反转，这就是控制反转名字的由来。</p>
+<p><strong>DI(Dependecy Inject,依赖注入)是实现控制反转的一种设计模式，依赖注入就是将实例变量传入到一个对象中去。</strong></p>
+<h2 id="工厂设计模式"><a href="#工厂设计模式" class="headerlink" title="工厂设计模式"></a>工厂设计模式</h2><p>Spring使用工厂模式可以通过 <code>BeanFactory</code> 或 <code>ApplicationContext</code> 创建 bean 对象。</p>
+<p><strong>两者对比：</strong></p>
+<ul>
+<li><code>BeanFactory</code> ：延迟注入(使用到某个 bean 的时候才会注入),相比于<code>ApplicationContext</code> 来说会占用更少的内存，程序启动速度更快。</li>
+<li><code>ApplicationContext</code> ：容器启动的时候，不管你用没用到，一次性创建所有 bean 。<code>BeanFactory</code> 仅提供了最基本的依赖注入支持，<code> ApplicationContext</code> 扩展了 <code>BeanFactory</code> ,除了有<code>BeanFactory</code>的功能还有额外更多功能，所以一般开发人员使用<code> ApplicationContext</code>会更多。</li>
+</ul>
+<p>ApplicationContext的三个实现类：</p>
+<ol>
+<li><code>ClassPathXmlApplication</code>：把上下文文件当成类路径资源。</li>
+<li><code>FileSystemXmlApplication</code>：从文件系统中的 XML 文件载入上下文定义信息。</li>
+<li><code>XmlWebApplicationContext</code>：从Web系统中的XML文件载入上下文定义信息。</li>
+</ol>
+<p>Example:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">import org.springframework.context.ApplicationContext;</span><br><span class="line">import org.springframework.context.support.FileSystemXmlApplicationContext;</span><br><span class="line"> </span><br><span class="line">public class App &#123;</span><br><span class="line">	public static void main(String[] args) &#123;</span><br><span class="line">		ApplicationContext context &#x3D; new FileSystemXmlApplicationContext(</span><br><span class="line">				&quot;C:&#x2F;work&#x2F;IOC Containers&#x2F;springframework.applicationcontext&#x2F;src&#x2F;main&#x2F;resources&#x2F;bean-factory-config.xml&quot;);</span><br><span class="line"> </span><br><span class="line">		HelloApplicationContext obj &#x3D; (HelloApplicationContext) context.getBean(&quot;helloApplicationContext&quot;);</span><br><span class="line">		obj.getMsg();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="单例设计模式"><a href="#单例设计模式" class="headerlink" title="单例设计模式"></a>单例设计模式</h2><p>在我们的系统中，有一些对象其实我们只需要一个，比如说：线程池、缓存、对话框、注册表、日志对象、充当打印机、显卡等设备驱动程序的对象。事实上，这一类对象只能有一个实例，如果制造出多个实例就可能会导致一些问题的产生，比如：程序的行为异常、资源使用过量、或者不一致性的结果。</p>
+<p><strong>使用单例模式的好处:</strong></p>
+<ul>
+<li>对于频繁使用的对象，可以省略创建对象所花费的时间，这对于那些重量级对象而言，是非常可观的一笔系统开销；</li>
+<li>由于 new 操作的次数减少，因而对系统内存的使用频率也会降低，这将减轻 GC 压力，缩短 GC 停顿时间。</li>
+</ul>
+<p><strong>Spring 中 bean 的默认作用域就是 singleton(单例)的。</strong> 除了 singleton 作用域，Spring 中 bean 还有下面几种作用域：</p>
+<ul>
+<li>prototype : 每次请求都会创建一个新的 bean 实例。</li>
+<li>request : 每一次HTTP请求都会产生一个新的bean，该bean仅在当前HTTP request内有效。</li>
+<li>session : 每一次HTTP请求都会产生一个新的 bean，该bean仅在当前 HTTP session 内有效。</li>
+<li>global-session： 全局session作用域，仅仅在基于portlet的web应用中才有意义，Spring5已经没有了。Portlet是能够生成语义代码(例如：HTML)片段的小型Java Web插件。它们基于portlet容器，可以像servlet一样处理HTTP请求。但是，与 servlet 不同，每个 portlet 都有不同的会话</li>
+</ul>
+<p><strong>Spring 实现单例的方式：</strong></p>
+<ul>
+<li>xml : <code>&lt;bean id=&quot;userService&quot; class=&quot;top.snailclimb.UserService&quot; scope=&quot;singleton&quot;/&gt;</code></li>
+<li>注解：<code>@Scope(value = &quot;singleton&quot;)</code></li>
+</ul>
+<p><strong>Spring 通过 <code>ConcurrentHashMap</code> 实现单例注册表的特殊方式实现单例模式。Spring 实现单例的核心代码如下</strong></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 通过 ConcurrentHashMap（线程安全） 实现单例注册表</span><br><span class="line">private final Map&lt;String, Object&gt; singletonObjects &#x3D; new ConcurrentHashMap&lt;String, Object&gt;(64);</span><br><span class="line"></span><br><span class="line">public Object getSingleton(String beanName, ObjectFactory&lt;?&gt; singletonFactory) &#123;</span><br><span class="line">        Assert.notNull(beanName, &quot;&#39;beanName&#39; must not be null&quot;);</span><br><span class="line">        synchronized (this.singletonObjects) &#123;</span><br><span class="line">            &#x2F;&#x2F; 检查缓存中是否存在实例  </span><br><span class="line">            Object singletonObject &#x3D; this.singletonObjects.get(beanName);</span><br><span class="line">            if (singletonObject &#x3D;&#x3D; null) &#123;</span><br><span class="line">                &#x2F;&#x2F;...省略了很多代码</span><br><span class="line">                try &#123;</span><br><span class="line">                    singletonObject &#x3D; singletonFactory.getObject();</span><br><span class="line">                &#125;</span><br><span class="line">                &#x2F;&#x2F;...省略了很多代码</span><br><span class="line">                &#x2F;&#x2F; 如果实例对象在不存在，我们注册到单例注册表中。</span><br><span class="line">                addSingleton(beanName, singletonObject);</span><br><span class="line">            &#125;</span><br><span class="line">            return (singletonObject !&#x3D; NULL_OBJECT ? singletonObject : null);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    &#x2F;&#x2F;将对象添加到单例注册表</span><br><span class="line">    protected void addSingleton(String beanName, Object singletonObject) &#123;</span><br><span class="line">            synchronized (this.singletonObjects) &#123;</span><br><span class="line">                this.singletonObjects.put(beanName, (singletonObject !&#x3D; null ? singletonObject : NULL_OBJECT));</span><br><span class="line"></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="代理设计模式"><a href="#代理设计模式" class="headerlink" title="代理设计模式"></a>代理设计模式</h2><h3 id="代理模式在-AOP-中的应用"><a href="#代理模式在-AOP-中的应用" class="headerlink" title="代理模式在 AOP 中的应用"></a>代理模式在 AOP 中的应用</h3><p>AOP(Aspect-Oriented Programming:面向切面编程)能够将那些与业务无关，<strong>却为业务模块所共同调用的逻辑或责任（例如事务处理、日志管理、权限控制等）封装起来</strong>，便于<strong>减少系统的重复代码</strong>，<strong>降低模块间的耦合度</strong>，并<strong>有利于未来的可拓展性和可维护性</strong>。</p>
+<p><strong>Spring AOP 就是基于动态代理的</strong>，如果要代理的对象，实现了某个接口，那么Spring AOP会使用<strong>JDK Proxy</strong>，去创建代理对象，而对于没有实现接口的对象，就无法使用 JDK Proxy 去进行代理了，这时候Spring AOP会使用<strong>Cglib</strong> ，这时候Spring AOP会使用 <strong>Cglib</strong> 生成一个被代理对象的子类来作为代理，如下图所示：</p>
+<p><a target="_blank" rel="noopener" href="https://camo.githubusercontent.com/2948f9b2b5c45eb208990afcac1bf5638783dc3ebc834d3d7d2d4f7cc050981c/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f537072696e67414f5050726f636573732e6a7067"><img src="https://camo.githubusercontent.com/2948f9b2b5c45eb208990afcac1bf5638783dc3ebc834d3d7d2d4f7cc050981c/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f537072696e67414f5050726f636573732e6a7067" alt="SpringAOPProcess"></a></p>
+<p>当然你也可以使用 AspectJ ,Spring AOP 已经集成了AspectJ ，AspectJ 应该算的上是 Java 生态系统中最完整的 AOP 框架了。</p>
+<p>使用 AOP 之后我们可以把一些通用功能抽象出来，在需要用到的地方直接使用即可，这样大大简化了代码量。我们需要增加新功能时也方便，这样也提高了系统扩展性。日志功能、事务管理等等场景都用到了 AOP 。</p>
+<h3 id="Spring-AOP-和-AspectJ-AOP-有什么区别"><a href="#Spring-AOP-和-AspectJ-AOP-有什么区别" class="headerlink" title="Spring AOP 和 AspectJ AOP 有什么区别?"></a>Spring AOP 和 AspectJ AOP 有什么区别?</h3><p><strong>Spring AOP 属于运行时增强，而 AspectJ 是编译时增强。</strong> Spring AOP 基于代理(Proxying)，而 AspectJ 基于字节码操作(Bytecode Manipulation)。</p>
+<p>Spring AOP 已经集成了 AspectJ ，AspectJ 应该算的上是 Java 生态系统中最完整的 AOP 框架了。AspectJ 相比于 Spring AOP 功能更加强大，但是 Spring AOP 相对来说更简单，</p>
+<p>如果我们的切面比较少，那么两者性能差异不大。但是，当切面太多的话，最好选择 AspectJ ，它比Spring AOP 快很多。</p>
+<h2 id="模板方法"><a href="#模板方法" class="headerlink" title="模板方法"></a>模板方法</h2><p>模板方法模式是一种行为设计模式，它定义一个操作中的算法的骨架，而将一些步骤延迟到子类中。 模板方法使得子类可以不改变一个算法的结构即可重定义该算法的某些特定步骤的实现方式。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">public abstract class Template &#123;</span><br><span class="line">    &#x2F;&#x2F;这是我们的模板方法</span><br><span class="line">    public final void TemplateMethod()&#123;</span><br><span class="line">        PrimitiveOperation1();  </span><br><span class="line">        PrimitiveOperation2();</span><br><span class="line">        PrimitiveOperation3();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    protected void  PrimitiveOperation1()&#123;</span><br><span class="line">        &#x2F;&#x2F;当前类实现</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    &#x2F;&#x2F;被子类实现的方法</span><br><span class="line">    protected abstract void PrimitiveOperation2();</span><br><span class="line">    protected abstract void PrimitiveOperation3();</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line">public class TemplateImpl extends Template &#123;</span><br><span class="line"></span><br><span class="line">    @Override</span><br><span class="line">    public void PrimitiveOperation2() &#123;</span><br><span class="line">        &#x2F;&#x2F;当前类实现</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    @Override</span><br><span class="line">    public void PrimitiveOperation3() &#123;</span><br><span class="line">        &#x2F;&#x2F;当前类实现</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Spring 中 <code>jdbcTemplate</code>、<code>hibernateTemplate</code> 等以 Template 结尾的对数据库操作的类，它们就使用到了模板模式。一般情况下，我们都是使用继承的方式来实现模板模式，但是 Spring 并没有使用这种方式，而是使用Callback 模式与模板方法模式配合，既达到了代码复用的效果，同时增加了灵活性。</p>
+<h2 id="观察者模式"><a href="#观察者模式" class="headerlink" title="观察者模式"></a>观察者模式</h2><p>观察者模式是一种对象行为型模式。它表示的是一种对象与对象之间具有依赖关系，当一个对象发生改变的时候，这个对象所依赖的对象也会做出反应。Spring 事件驱动模型就是观察者模式很经典的一个应用。Spring 事件驱动模型非常有用，在很多场景都可以解耦我们的代码。比如我们每次添加商品的时候都需要重新更新商品索引，这个时候就可以利用观察者模式来解决这个问题。</p>
+<h3 id="Spring-事件驱动模型中的三种角色"><a href="#Spring-事件驱动模型中的三种角色" class="headerlink" title="Spring 事件驱动模型中的三种角色"></a>Spring 事件驱动模型中的三种角色</h3><h4 id="事件角色"><a href="#事件角色" class="headerlink" title="事件角色"></a>事件角色</h4><p><code>ApplicationEvent</code> (<code>org.springframework.context</code>包下)充当事件的角色,这是一个抽象类，它继承了<code>java.util.EventObject</code>并实现了 <code>java.io.Serializable</code>接口。</p>
+<p>Spring 中默认存在以下事件，他们都是对 <code>ApplicationContextEvent</code> 的实现(继承自<code>ApplicationContextEvent</code>)：</p>
+<ul>
+<li><code>ContextStartedEvent</code>：<code>ApplicationContext</code> 启动后触发的事件;</li>
+<li><code>ContextStoppedEvent</code>：<code>ApplicationContext</code> 停止后触发的事件;</li>
+<li><code>ContextRefreshedEvent</code>：<code>ApplicationContext</code> 初始化或刷新完成后触发的事件;</li>
+<li><code>ContextClosedEvent</code>：<code>ApplicationContext</code> 关闭后触发的事件。</li>
+</ul>
+<p><a target="_blank" rel="noopener" href="https://camo.githubusercontent.com/61adb611ba7c950b20dc6f2bc3aaddd7596497f9e8ffe1e682b822cc33793a48/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f4170706c69636174696f6e4576656e742d537562636c6173732e706e67"><img src="https://camo.githubusercontent.com/61adb611ba7c950b20dc6f2bc3aaddd7596497f9e8ffe1e682b822cc33793a48/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f4170706c69636174696f6e4576656e742d537562636c6173732e706e67" alt="ApplicationEvent-Subclass"></a></p>
+<h4 id="事件监听者角色"><a href="#事件监听者角色" class="headerlink" title="事件监听者角色"></a>事件监听者角色</h4><p><code>ApplicationListener</code> 充当了事件监听者角色，它是一个接口，里面只定义了一个 <code>onApplicationEvent（）</code>方法来处理<code>ApplicationEvent</code>。<code>ApplicationListener</code>接口类源码如下，可以看出接口定义看出接口中的事件只要实现了 <code>ApplicationEvent</code>就可以了。所以，在 Spring中我们只要实现 <code>ApplicationListener</code> 接口的 <code>onApplicationEvent()</code> 方法即可完成监听事件</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">package org.springframework.context;</span><br><span class="line">import java.util.EventListener;</span><br><span class="line">@FunctionalInterface</span><br><span class="line">public interface ApplicationListener&lt;E extends ApplicationEvent&gt; extends EventListener &#123;</span><br><span class="line">    void onApplicationEvent(E var1);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="事件发布者角色"><a href="#事件发布者角色" class="headerlink" title="事件发布者角色"></a>事件发布者角色</h4><p><code>ApplicationEventPublisher</code> 充当了事件的发布者，它也是一个接口。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">@FunctionalInterface</span><br><span class="line">public interface ApplicationEventPublisher &#123;</span><br><span class="line">    default void publishEvent(ApplicationEvent event) &#123;</span><br><span class="line">        this.publishEvent((Object)event);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    void publishEvent(Object var1);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>ApplicationEventPublisher</code> 接口的<code>publishEvent（）</code>这个方法在<code>AbstractApplicationContext</code>类中被实现，阅读这个方法的实现，你会发现实际上事件真正是通过<code>ApplicationEventMulticaster</code>来广播出去的。具体内容过多，就不在这里分析了，后面可能会单独写一篇文章提到。</p>
+<h3 id="Spring-的事件流程总结"><a href="#Spring-的事件流程总结" class="headerlink" title="Spring 的事件流程总结"></a>Spring 的事件流程总结</h3><ol>
+<li>定义一个事件: 实现一个继承自 <code>ApplicationEvent</code>，并且写相应的构造函数；</li>
+<li>定义一个事件监听者：实现 <code>ApplicationListener</code> 接口，重写 <code>onApplicationEvent()</code> 方法；</li>
+<li>使用事件发布者发布消息: 可以通过 <code>ApplicationEventPublisher </code>的 <code>publishEvent()</code> 方法发布消息。</li>
+</ol>
+<p>Example:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 定义一个事件,继承自ApplicationEvent并且写相应的构造函数</span><br><span class="line">public class DemoEvent extends ApplicationEvent&#123;</span><br><span class="line">    private static final long serialVersionUID &#x3D; 1L;</span><br><span class="line"></span><br><span class="line">    private String message;</span><br><span class="line"></span><br><span class="line">    public DemoEvent(Object source,String message)&#123;</span><br><span class="line">        super(source);</span><br><span class="line">        this.message &#x3D; message;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    public String getMessage() &#123;</span><br><span class="line">         return message;</span><br><span class="line">          &#125;</span><br><span class="line"></span><br><span class="line">    </span><br><span class="line">&#x2F;&#x2F; 定义一个事件监听者,实现ApplicationListener接口，重写 onApplicationEvent() 方法；</span><br><span class="line">@Component</span><br><span class="line">public class DemoListener implements ApplicationListener&lt;DemoEvent&gt;&#123;</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F;使用onApplicationEvent接收消息</span><br><span class="line">    @Override</span><br><span class="line">    public void onApplicationEvent(DemoEvent event) &#123;</span><br><span class="line">        String msg &#x3D; event.getMessage();</span><br><span class="line">        System.out.println(&quot;接收到的信息是：&quot;+msg);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line">&#x2F;&#x2F; 发布事件，可以通过ApplicationEventPublisher  的 publishEvent() 方法发布消息。</span><br><span class="line">@Component</span><br><span class="line">public class DemoPublisher &#123;</span><br><span class="line"></span><br><span class="line">    @Autowired</span><br><span class="line">    ApplicationContext applicationContext;</span><br><span class="line"></span><br><span class="line">    public void publish(String message)&#123;</span><br><span class="line">        &#x2F;&#x2F;发布事件</span><br><span class="line">        applicationContext.publishEvent(new DemoEvent(this, message));</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>当调用 <code>DemoPublisher </code>的 <code>publish()</code> 方法的时候，比如 <code>demoPublisher.publish(&quot;你好&quot;)</code> ，控制台就会打印出:<code>接收到的信息是：你好</code> 。</p>
+<h2 id="适配器模式"><a href="#适配器模式" class="headerlink" title="适配器模式"></a>适配器模式</h2><p>适配器模式(Adapter Pattern) 将一个接口转换成客户希望的另一个接口，适配器模式使接口不兼容的那些类可以一起工作，其别名为包装器(Wrapper)。</p>
+<h3 id="spring-AOP中的适配器模式"><a href="#spring-AOP中的适配器模式" class="headerlink" title="spring AOP中的适配器模式"></a>spring AOP中的适配器模式</h3><p>我们知道 Spring AOP 的实现是基于代理模式，但是 Spring AOP 的增强或通知(Advice)使用到了适配器模式，与之相关的接口是<code>AdvisorAdapter </code>。Advice 常用的类型有：<code>BeforeAdvice</code>（目标方法调用前,前置通知）、<code>AfterAdvice</code>（目标方法调用后,后置通知）、<code>AfterReturningAdvice</code>(目标方法执行结束后，return之前)等等。每个类型Advice（通知）都有对应的拦截器:<code>MethodBeforeAdviceInterceptor</code>、<code>AfterReturningAdviceAdapter</code>、<code>AfterReturningAdviceInterceptor</code>。Spring预定义的通知要通过对应的适配器，适配成 <code>MethodInterceptor</code>接口(方法拦截器)类型的对象（如：<code>MethodBeforeAdviceInterceptor</code> 负责适配 <code>MethodBeforeAdvice</code>）。</p>
+<h3 id="spring-MVC中的适配器模式"><a href="#spring-MVC中的适配器模式" class="headerlink" title="spring MVC中的适配器模式"></a>spring MVC中的适配器模式</h3><p>在Spring MVC中，<code>DispatcherServlet</code> 根据请求信息调用 <code>HandlerMapping</code>，解析请求对应的 <code>Handler</code>。解析到对应的 <code>Handler</code>（也就是我们平常说的 <code>Controller</code> 控制器）后，开始由<code>HandlerAdapter</code> 适配器处理。<code>HandlerAdapter</code> 作为期望接口，具体的适配器实现类用于对目标类进行适配，<code>Controller</code> 作为需要适配的类。</p>
+<p><strong>为什么要在 Spring MVC 中使用适配器模式？</strong> Spring MVC 中的 <code>Controller</code> 种类众多，不同类型的 <code>Controller</code> 通过不同的方法来对请求进行处理。如果不利用适配器模式的话，<code>DispatcherServlet</code> 直接获取对应类型的 <code>Controller</code>，需要的自行来判断，像下面这段代码一样：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">if(mappedHandler.getHandler() instanceof MultiActionController)&#123;  </span><br><span class="line">   ((MultiActionController)mappedHandler.getHandler()).xxx  </span><br><span class="line">&#125;else if(mappedHandler.getHandler() instanceof XXX)&#123;  </span><br><span class="line">    ...  </span><br><span class="line">&#125;else if(...)&#123;  </span><br><span class="line">   ...  </span><br><span class="line">&#125;  </span><br></pre></td></tr></table></figure>
+
+<p>假如我们再增加一个 <code>Controller</code>类型就要在上面代码中再加入一行 判断语句，这种形式就使得程序难以维护，也违反了设计模式中的开闭原则 – 对扩展开放，对修改关闭。</p>
+<h2 id="装饰者模式"><a href="#装饰者模式" class="headerlink" title="装饰者模式"></a>装饰者模式</h2><p>装饰者模式可以动态地给对象添加一些额外的属性或行为。相比于使用继承，装饰者模式更加灵活。简单点儿说就是当我们需要修改原有的功能，但我们又不愿直接去修改原有的代码时，设计一个Decorator套在原有代码外面。其实在 JDK 中就有很多地方用到了装饰者模式，比如 <code>InputStream</code>家族，<code>InputStream</code> 类下有 <code>FileInputStream</code> (读取文件)、<code>BufferedInputStream</code> (增加缓存,使读取文件速度大大提升)等子类都在不修改<code>InputStream</code> 代码的情况下扩展了它的功能。</p>
+<p><a target="_blank" rel="noopener" href="https://camo.githubusercontent.com/92d5fca30ccf6e54940a36521360ef71aa260a0e84875f705c966311a506f435/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f4465636f7261746f722e6a7067"><img src="https://camo.githubusercontent.com/92d5fca30ccf6e54940a36521360ef71aa260a0e84875f705c966311a506f435/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d362f4465636f7261746f722e6a7067" alt="装饰者模式示意图"></a></p>
+<p>Spring 中配置 DataSource 的时候，DataSource 可能是不同的数据库和数据源。我们能否根据客户的需求在少修改原有类的代码下动态切换不同的数据源？这个时候就要用到装饰者模式(这一点我自己还没太理解具体原理)。Spring 中用到的包装器模式在类名上含有 <code>Wrapper</code>或者 <code>Decorator</code>。这些类基本上都是动态地给一个对象添加一些额外的职责</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>Spring 框架中用到了哪些设计模式？</p>
+<ul>
+<li><strong>工厂设计模式</strong> : Spring使用工厂模式通过 <code>BeanFactory</code>、<code>ApplicationContext</code> 创建 bean 对象。</li>
+<li><strong>代理设计模式</strong> : Spring AOP 功能的实现。</li>
+<li><strong>单例设计模式</strong> : Spring 中的 Bean 默认都是单例的。</li>
+<li><strong>模板方法模式</strong> : Spring 中 <code>jdbcTemplate</code>、<code>hibernateTemplate</code> 等以 Template 结尾的对数据库操作的类，它们就使用到了模板模式。</li>
+<li><strong>包装器设计模式</strong> : 我们的项目需要连接多个数据库，而且不同的客户在每次访问中根据需要会去访问不同的数据库。这种模式让我们可以根据客户的需求能够动态切换不同的数据源。</li>
+<li><strong>观察者模式:</strong> Spring 事件驱动模型就是观察者模式很经典的一个应用。</li>
+<li><strong>适配器模式</strong> :Spring AOP 的增强或通知(Advice)使用到了适配器模式、spring MVC 中也是用到了适配器模式适配<code>Controller</code>。</li>
+<li>……</li>
+</ul>
+<h2 id="参考-1"><a href="#参考-1" class="headerlink" title="参考"></a>参考</h2><ul>
+<li>《Spring技术内幕》</li>
+<li><a target="_blank" rel="noopener" href="https://blog.eduonix.com/java-programming-2/learn-design-patterns-used-spring-framework/">https://blog.eduonix.com/java-programming-2/learn-design-patterns-used-spring-framework/</a></li>
+<li><a target="_blank" rel="noopener" href="http://blog.yeamin.top/2018/03/27/%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F-Spring%E5%8D%95%E4%BE%8B%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/">http://blog.yeamin.top/2018/03/27/单例模式-Spring单例实现原理分析/</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.tutorialsteacher.com/ioc/inversion-of-control">https://www.tutorialsteacher.com/ioc/inversion-of-control</a></li>
+<li><a target="_blank" rel="noopener" href="https://design-patterns.readthedocs.io/zh_CN/latest/behavioral_patterns/observer.html">https://design-patterns.readthedocs.io/zh_CN/latest/behavioral_patterns/observer.html</a></li>
+<li><a target="_blank" rel="noopener" href="https://juejin.im/post/5a8eb261f265da4e9e307230">https://juejin.im/post/5a8eb261f265da4e9e307230</a></li>
+<li><a target="_blank" rel="noopener" href="https://juejin.im/post/5ba28986f265da0abc2b6084">https://juejin.im/post/5ba28986f265da0abc2b6084</a></li>
+</ul>
+<h1 id="Spring-AOP实现原理"><a href="#Spring-AOP实现原理" class="headerlink" title="Spring AOP实现原理"></a>Spring AOP实现原理</h1><p>在之前的<a target="_blank" rel="noopener" href="http://www.cnblogs.com/puyangsky/p/5494375.html">一文中</a>介绍过Spring AOP的功能使用，但是没有深究AOP的实现原理，今天正好看到几篇好文，于是就自己整理了一下AOP实现的几种方式，同时把代理模式相关知识也稍微整理一下。</p>
+<h2 id="代理模式"><a href="#代理模式" class="headerlink" title="代理模式"></a>代理模式</h2><p>代理模式的UML类图如下：</p>
+<p><img src="https://images2015.cnblogs.com/blog/756310/201609/756310-20160924153802543-1643119235.jpg" alt="img"></p>
+<p>可以看到还是很简单的，代理类实现了被代理类的接口，同时与被代理类是组合关系。下面看一下代理模式的实现。</p>
+<h2 id="静态代理"><a href="#静态代理" class="headerlink" title="静态代理"></a>静态代理</h2><p>接口类：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">interface Person &#123;</span><br><span class="line">    void speak();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>真实实体类：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">class Actor implements Person &#123;</span><br><span class="line">    private String content;</span><br><span class="line">    public Actor(String content) &#123;</span><br><span class="line">        this.content &#x3D; content;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    @Override</span><br><span class="line">    public void speak() &#123;</span><br><span class="line">        System.out.println(this.content);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>代理类：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">class Agent implements Person &#123;</span><br><span class="line">    private Actor actor;</span><br><span class="line">    private String before;</span><br><span class="line">    private String after;</span><br><span class="line">    public Agent(Actor actor, String before, String after) &#123;</span><br><span class="line">        this.actor &#x3D; actor;</span><br><span class="line">        this.before &#x3D; before;</span><br><span class="line">        this.after &#x3D; after;</span><br><span class="line">    &#125;</span><br><span class="line">    @Override</span><br><span class="line">    public void speak() &#123;</span><br><span class="line">        &#x2F;&#x2F;before speak</span><br><span class="line">        System.out.println(&quot;Before actor speak, Agent say: &quot; + before);</span><br><span class="line">        &#x2F;&#x2F;real speak</span><br><span class="line">        this.actor.speak();</span><br><span class="line">        &#x2F;&#x2F;after speak</span><br><span class="line">        System.out.println(&quot;After actor speak, Agent say: &quot; + after);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>测试方法:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">public class StaticProxy &#123;</span><br><span class="line">    public static void main(String[] args) &#123;</span><br><span class="line">        Actor actor &#x3D; new Actor(&quot;I am a famous actor!&quot;);</span><br><span class="line">        Agent agent &#x3D; new Agent(actor, &quot;Hello I am an agent.&quot;, &quot;That&#39;s all!&quot;);</span><br><span class="line">        agent.speak();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>结果：</p>
+<p><img src="https://images2015.cnblogs.com/blog/756310/201609/756310-20160924161444074-1045394614.jpg" alt="img"></p>
+<h2 id="动态代理"><a href="#动态代理" class="headerlink" title="动态代理"></a>动态代理</h2><p>在讲JDK的动态代理方法之前，不妨先想想如果让你来实现一个可以任意类的任意方法的代理类，该怎么实现？有个很naive的做法，通过反射获得Class和Method，再调用该方法，并且实现一些代理的方法。我尝试了一下，很快就发现问题所在了。于是乎，还是使用JDK的动态代理接口吧。</p>
+<h3 id="JDK自带方法"><a href="#JDK自带方法" class="headerlink" title="JDK自带方法"></a>JDK自带方法</h3><p>首先介绍一下最核心的一个接口和一个方法：</p>
+<p>首先是java.lang.reflect包里的InvocationHandler接口：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">public interface InvocationHandler &#123;</span><br><span class="line">    public Object invoke(Object proxy, Method method, Object[] args)</span><br><span class="line">        throws Throwable;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们对于被代理的类的操作都会由该接口中的invoke方法实现，其中的参数的含义分别是：</p>
+<ul>
+<li>proxy：被代理的类的实例</li>
+<li>method：调用被代理的类的方法</li>
+<li>args：该方法需要的参数</li>
+</ul>
+<p>使用方法首先是需要实现该接口，并且我们可以在invoke方法中调用被代理类的方法并获得返回值，自然也可以在调用该方法的前后去做一些额外的事情，从而实现动态代理，下面的例子会详细写到。</p>
+<p>另外一个很重要的静态方法是java.lang.reflect包中的Proxy类的newProxyInstance方法：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">public static Object newProxyInstance(ClassLoader loader,</span><br><span class="line">                                      Class&lt;?&gt;[] interfaces,</span><br><span class="line">                                      InvocationHandler h)</span><br><span class="line">    throws IllegalArgumentException</span><br></pre></td></tr></table></figure>
+
+<p>其中的参数含义如下：</p>
+<ul>
+<li>loader：被代理的类的类加载器</li>
+<li>interfaces：被代理类的接口数组</li>
+<li>invocationHandler：就是刚刚介绍的调用处理器类的对象实例</li>
+</ul>
+<p>该方法会返回一个被修改过的类的实例，从而可以自由的调用该实例的方法。下面是一个实际例子。</p>
+<p>Fruit接口：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">public interface Fruit &#123;</span><br><span class="line">    public void show();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Apple实现Fruit接口：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">public class Apple implements Fruit&#123;</span><br><span class="line">    @Override</span><br><span class="line">    public void show() &#123;</span><br><span class="line">        System.out.println(&quot;&lt;&lt;&lt;&lt;show method is invoked&quot;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>代理类Agent.java：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">public class DynamicAgent &#123;</span><br><span class="line"></span><br><span class="line">	&#x2F;&#x2F;实现InvocationHandler接口，并且可以初始化被代理类的对象</span><br><span class="line">    static class MyHandler implements InvocationHandler &#123;</span><br><span class="line">        private Object proxy;</span><br><span class="line">        public MyHandler(Object proxy) &#123;</span><br><span class="line">            this.proxy &#x3D; proxy;</span><br><span class="line">        &#125;</span><br><span class="line">			</span><br><span class="line">		&#x2F;&#x2F;自定义invoke方法</span><br><span class="line">        @Override</span><br><span class="line">        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable &#123;</span><br><span class="line">            System.out.println(&quot;&gt;&gt;&gt;&gt;before invoking&quot;);</span><br><span class="line">			&#x2F;&#x2F;真正调用方法的地方</span><br><span class="line">            Object ret &#x3D; method.invoke(this.proxy, args);</span><br><span class="line">            System.out.println(&quot;&gt;&gt;&gt;&gt;after invoking&quot;);</span><br><span class="line">            return ret;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">	&#x2F;&#x2F;返回一个被修改过的对象</span><br><span class="line">    public static Object agent(Class interfaceClazz, Object proxy) &#123;</span><br><span class="line">        return Proxy.newProxyInstance(interfaceClazz.getClassLoader(), new Class[]&#123;interfaceClazz&#125;,</span><br><span class="line">                new MyHandler(proxy));</span><br><span class="line">    &#125;    </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>测试类：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">public class ReflectTest &#123;</span><br><span class="line">    public static void main(String[] args) throws InvocationTargetException, IllegalAccessException &#123;</span><br><span class="line">		&#x2F;&#x2F;注意一定要返回接口，不能返回实现类否则会报错</span><br><span class="line">        Fruit fruit &#x3D; (Fruit) DynamicAgent.agent(Fruit.class, new Apple());</span><br><span class="line">        fruit.show();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>结果：</p>
+<p><img src="https://images2015.cnblogs.com/blog/756310/201612/756310-20161224235824807-1026162849.jpg" alt="img"></p>
+<p>可以看到对于不同的实现类来说，可以用同一个动态代理类来进行代理，实现了“一次编写到处代理”的效果。但是这种方法有个缺点，就是被代理的类一定要是实现了某个接口的，这很大程度限制了本方法的使用场景。下面还有另外一个使用了CGlib增强库的方法。</p>
+<h3 id="CGLIB库的方法"><a href="#CGLIB库的方法" class="headerlink" title="CGLIB库的方法"></a>CGLIB库的方法</h3><p><a href="https://github.com/cglib/cglib">CGlib</a>是一个字节码增强库，为AOP等提供了底层支持。下面看看它是怎么实现动态代理的。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">import net.sf.cglib.proxy.Enhancer;</span><br><span class="line">import net.sf.cglib.proxy.MethodInterceptor;</span><br><span class="line">import net.sf.cglib.proxy.MethodProxy;</span><br><span class="line">import java.lang.reflect.Method;</span><br><span class="line"></span><br><span class="line">public class CGlibAgent implements MethodInterceptor &#123;</span><br><span class="line"></span><br><span class="line">    private Object proxy;</span><br><span class="line"></span><br><span class="line">    public Object getInstance(Object proxy) &#123;</span><br><span class="line">        this.proxy &#x3D; proxy;</span><br><span class="line">        Enhancer enhancer &#x3D; new Enhancer();</span><br><span class="line">        enhancer.setSuperclass(this.proxy.getClass());</span><br><span class="line">        &#x2F;&#x2F; 回调方法</span><br><span class="line">        enhancer.setCallback(this);</span><br><span class="line">        &#x2F;&#x2F; 创建代理对象</span><br><span class="line">        return enhancer.create();</span><br><span class="line">    &#125;</span><br><span class="line">	&#x2F;&#x2F;回调方法</span><br><span class="line">    @Override</span><br><span class="line">    public Object intercept(Object o, Method method, Object[] objects, MethodProxy methodProxy) throws Throwable &#123;</span><br><span class="line">        System.out.println(&quot;&gt;&gt;&gt;&gt;before invoking&quot;);</span><br><span class="line">		&#x2F;&#x2F;真正调用</span><br><span class="line">        Object ret &#x3D; methodProxy.invokeSuper(o, objects);</span><br><span class="line">        System.out.println(&quot;&gt;&gt;&gt;&gt;after invoking&quot;);</span><br><span class="line">        return ret;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    public static void main(String[] args) &#123;</span><br><span class="line">        CGlibAgent cGlibAgent &#x3D; new CGlibAgent();</span><br><span class="line">        Apple apple &#x3D; (Apple) cGlibAgent.getInstance(new Apple());</span><br><span class="line">        apple.show();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>结果：</p>
+<p><img src="https://images2015.cnblogs.com/blog/756310/201612/756310-20161224235824807-1026162849.jpg" alt="img"></p>
+<p>可以看到结果和JDK动态代理是一样的，但是可以直接对实现类进行操作而非接口，这样会有很大的便利。</p>
+<p>D是数据的唯一标识，传统的做法是利用UUID和数据库的自增ID，在互联网企业中，大部分公司使用的都是Mysql，并且因为需要事务支持，所以通常会使用Innodb存储引擎，UUID太长以及无序，所以并不适合在Innodb中来作为主键，自增ID比较合适，但是随着公司的业务发展，数据量将越来越大，需要对数据进行分表，而分表后，每个表中的数据都会按自己的节奏进行自增，很有可能出现ID冲突。这时就需要一个单独的机制来负责生成唯一ID，生成出来的ID也可以叫做<strong>分布式ID</strong>，或<strong>全局ID</strong>。下面来分析各个生成分布式ID的机制。</p>
+<p><a target="_blank" rel="noopener" href="https://camo.githubusercontent.com/6bcfd2124ea425d8603f85e404b68518b76901357d1f6717a51a8a135775bbff/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d372f25453525383825383625453525423825383325453525424325384669642545362539362542392545362541312538382e6a706567"><img src="https://camo.githubusercontent.com/6bcfd2124ea425d8603f85e404b68518b76901357d1f6717a51a8a135775bbff/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d372f25453525383825383625453525423825383325453525424325384669642545362539362542392545362541312538382e6a706567" alt="常用分布式id方案"></a></p>
+<p>这篇文章并不会分析的特别详细，主要是做一些总结，以后再出一些详细某个方案的文章。</p>
+<h2 id="数据库自增ID"><a href="#数据库自增ID" class="headerlink" title="数据库自增ID"></a>数据库自增ID</h2><p>第一种方案仍然还是基于数据库的自增ID，需要单独使用一个数据库实例，在这个实例中新建一个单独的表：</p>
+<p>表结构如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">CREATE DATABASE &#96;SEQID&#96;;</span><br><span class="line"></span><br><span class="line">CREATE TABLE SEQID.SEQUENCE_ID (</span><br><span class="line">	id bigint(20) unsigned NOT NULL auto_increment, </span><br><span class="line">	stub char(10) NOT NULL default &#39;&#39;,</span><br><span class="line">	PRIMARY KEY (id),</span><br><span class="line">	UNIQUE KEY stub (stub)</span><br><span class="line">) ENGINE&#x3D;MyISAM;</span><br></pre></td></tr></table></figure>
+
+<p>可以使用下面的语句生成并获取到一个自增ID</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">begin;</span><br><span class="line">replace into SEQUENCE_ID (stub) VALUES (&#39;anyword&#39;);</span><br><span class="line">select last_insert_id();</span><br><span class="line">commit;</span><br></pre></td></tr></table></figure>
+
+<p>stub字段在这里并没有什么特殊的意义，只是为了方便的去插入数据，只有能插入数据才能产生自增id。而对于插入我们用的是replace，replace会先看是否存在stub指定值一样的数据，如果存在则先delete再insert，如果不存在则直接insert。</p>
+<p>这种生成分布式ID的机制，需要一个单独的Mysql实例，虽然可行，但是基于性能与可靠性来考虑的话都不够，<strong>业务系统每次需要一个ID时，都需要请求数据库获取，性能低，并且如果此数据库实例下线了，那么将影响所有的业务系统。</strong></p>
+<p>为了解决数据库可靠性问题，我们可以使用第二种分布式ID生成方案。</p>
+<h2 id="数据库多主模式"><a href="#数据库多主模式" class="headerlink" title="数据库多主模式"></a>数据库多主模式</h2><p>如果我们两个数据库组成一个<strong>主从模式</strong>集群，正常情况下可以解决数据库可靠性问题，但是如果主库挂掉后，数据没有及时同步到从库，这个时候会出现ID重复的现象。我们可以使用<strong>双主模式</strong>集群，也就是两个Mysql实例都能单独的生产自增ID，这样能够提高效率，但是如果不经过其他改造的话，这两个Mysql实例很可能会生成同样的ID。需要单独给每个Mysql实例配置不同的起始值和自增步长。</p>
+<p>第一台Mysql实例配置：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">set @@auto_increment_offset &#x3D; 1;     -- 起始值</span><br><span class="line">set @@auto_increment_increment &#x3D; 2;  -- 步长</span><br></pre></td></tr></table></figure>
+
+<p>第二台Mysql实例配置：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">set @@auto_increment_offset &#x3D; 2;     -- 起始值</span><br><span class="line">set @@auto_increment_increment &#x3D; 2;  -- 步长</span><br></pre></td></tr></table></figure>
+
+<p>经过上面的配置后，这两个Mysql实例生成的id序列如下： mysql1,起始值为1,步长为2,ID生成的序列为：1,3,5,7,9,… mysql2,起始值为2,步长为2,ID生成的序列为：2,4,6,8,10,…</p>
+<p>对于这种生成分布式ID的方案，需要单独新增一个生成分布式ID应用，比如DistributIdService，该应用提供一个接口供业务应用获取ID，业务应用需要一个ID时，通过rpc的方式请求DistributIdService，DistributIdService随机去上面的两个Mysql实例中去获取ID。</p>
+<p>实行这种方案后，就算其中某一台Mysql实例下线了，也不会影响DistributIdService，DistributIdService仍然可以利用另外一台Mysql来生成ID。</p>
+<p>但是这种方案的扩展性不太好，如果两台Mysql实例不够用，需要新增Mysql实例来提高性能时，这时就会比较麻烦。</p>
+<p>现在如果要新增一个实例mysql3，要怎么操作呢？ 第一，mysql1、mysql2的步长肯定都要修改为3，而且只能是人工去修改，这是需要时间的。 第二，因为mysql1和mysql2是不停在自增的，对于mysql3的起始值我们可能要定得大一点，以给充分的时间去修改mysql1，mysql2的步长。 第三，在修改步长的时候很可能会出现重复ID，要解决这个问题，可能需要停机才行。</p>
+<p>为了解决上面的问题，以及能够进一步提高DistributIdService的性能，如果使用第三种生成分布式ID机制。</p>
+<h2 id="号段模式"><a href="#号段模式" class="headerlink" title="号段模式"></a>号段模式</h2><p>我们可以使用号段的方式来获取自增ID，号段可以理解成批量获取，比如DistributIdService从数据库获取ID时，如果能批量获取多个ID并缓存在本地的话，那样将大大提供业务应用获取ID的效率。</p>
+<p>比如DistributIdService每次从数据库获取ID时，就获取一个号段，比如(1,1000]，这个范围表示了1000个ID，业务应用在请求DistributIdService提供ID时，DistributIdService只需要在本地从1开始自增并返回即可，而不需要每次都请求数据库，一直到本地自增到1000时，也就是当前号段已经被用完时，才去数据库重新获取下一号段。</p>
+<p>所以，我们需要对数据库表进行改动，如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE id_generator (</span><br><span class="line">  id int(10) NOT NULL,</span><br><span class="line">  current_max_id bigint(20) NOT NULL COMMENT &#39;当前最大id&#39;,</span><br><span class="line">  increment_step int(10) NOT NULL COMMENT &#39;号段的长度&#39;,</span><br><span class="line">  PRIMARY KEY (&#96;id&#96;)</span><br><span class="line">) ENGINE&#x3D;InnoDB DEFAULT CHARSET&#x3D;utf8;</span><br></pre></td></tr></table></figure>
+
+<p>这个数据库表用来记录自增步长以及当前自增ID的最大值（也就是当前已经被申请的号段的最后一个值），因为自增逻辑被移到DistributIdService中去了，所以数据库不需要这部分逻辑了。</p>
+<p>这种方案不再强依赖数据库，就算数据库不可用，那么DistributIdService也能继续支撑一段时间。但是如果DistributIdService重启，会丢失一段ID，导致ID空洞。</p>
+<p>为了提高DistributIdService的高可用，需要做一个集群，业务在请求DistributIdService集群获取ID时，会随机的选择某一个DistributIdService节点进行获取，对每一个DistributIdService节点来说，数据库连接的是同一个数据库，那么可能会产生多个DistributIdService节点同时请求数据库获取号段，那么这个时候需要利用乐观锁来进行控制，比如在数据库表中增加一个version字段，在获取号段时使用如下SQL：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">update id_generator set current_max_id&#x3D;#&#123;newMaxId&#125;, version&#x3D;version+1 where version &#x3D; #&#123;version&#125;</span><br></pre></td></tr></table></figure>
+
+<p>因为newMaxId是DistributIdService中根据oldMaxId+步长算出来的，只要上面的update更新成功了就表示号段获取成功了。</p>
+<p>为了提供数据库层的高可用，需要对数据库使用多主模式进行部署，对于每个数据库来说要保证生成的号段不重复，这就需要利用最开始的思路，再在刚刚的数据库表中增加起始值和步长，比如如果现在是两台Mysql，那么 mysql1将生成号段（1,1001]，自增的时候序列为1，3，5，7…. mysql1将生成号段（2,1002]，自增的时候序列为2，4，6，8，10…</p>
+<p>更详细的可以参考滴滴开源的TinyId：<a href="https://github.com/didi/tinyid/wiki/tinyid%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D">github.com/didi/tinyid…</a></p>
+<p>在TinyId中还增加了一步来提高效率，在上面的实现中，ID自增的逻辑是在DistributIdService中实现的，而实际上可以把自增的逻辑转移到业务应用本地，这样对于业务应用来说只需要获取号段，每次自增时不再需要请求调用DistributIdService了。</p>
+<h2 id="雪花算法"><a href="#雪花算法" class="headerlink" title="雪花算法"></a>雪花算法</h2><p>上面的三种方法总的来说是基于自增思想的，而接下来就介绍比较著名的雪花算法-snowflake。</p>
+<p>我们可以换个角度来对分布式ID进行思考，只要能让负责生成分布式ID的每台机器在每毫秒内生成不一样的ID就行了。</p>
+<p>snowflake是twitter开源的分布式ID生成算法，是一种算法，所以它和上面的三种生成分布式ID机制不太一样，它不依赖数据库。</p>
+<p>核心思想是：分布式ID固定是一个long型的数字，一个long型占8个字节，也就是64个bit，原始snowflake算法中对于bit的分配如下图：</p>
+<p><a target="_blank" rel="noopener" href="https://camo.githubusercontent.com/b5790b5466f04f53418aae9660f7feb5c1a3e89c762bfe806e0c0edfc1bfd45c/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d372f2545392539422541412545382538412542312545372541452539372545362542332539352e706e67"><img src="https://camo.githubusercontent.com/b5790b5466f04f53418aae9660f7feb5c1a3e89c762bfe806e0c0edfc1bfd45c/68747470733a2f2f6d792d626c6f672d746f2d7573652e6f73732d636e2d6265696a696e672e616c6979756e63732e636f6d2f323031392d372f2545392539422541412545382538412542312545372541452539372545362542332539352e706e67" alt="雪花算法"></a></p>
+<ul>
+<li>第一个bit位是标识部分，在java中由于long的最高位是符号位，正数是0，负数是1，一般生成的ID为正数，所以固定为0。</li>
+<li>时间戳部分占41bit，这个是毫秒级的时间，一般实现上不会存储当前的时间戳，而是时间戳的差值（当前时间-固定的开始时间），这样可以使产生的ID从更小值开始；41位的时间戳可以使用69年，(1L &lt;&lt; 41) / (1000L * 60 * 60 * 24 * 365) = 69年</li>
+<li>工作机器id占10bit，这里比较灵活，比如，可以使用前5位作为数据中心机房标识，后5位作为单机房机器标识，可以部署1024个节点。</li>
+<li>序列号部分占12bit，支持同一毫秒内同一个节点可以生成4096个ID</li>
+</ul>
+<p>根据这个算法的逻辑，只需要将这个算法用Java语言实现出来，封装为一个工具方法，那么各个业务应用可以直接使用该工具方法来获取分布式ID，只需保证每个业务应用有自己的工作机器id即可，而不需要单独去搭建一个获取分布式ID的应用。</p>
+<p>snowflake算法实现起来并不难，提供一个github上用java实现的：<a href="https://github.com/beyondfengyu/SnowFlake">github.com/beyondfengy…</a></p>
+<p>在大厂里，其实并没有直接使用snowflake，而是进行了改造，因为snowflake算法中最难实践的就是工作机器id，原始的snowflake算法需要人工去为每台机器去指定一个机器id，并配置在某个地方从而让snowflake从此处获取机器id。</p>
+<p>但是在大厂里，机器是很多的，人力成本太大且容易出错，所以大厂对snowflake进行了改造。</p>
+<h3 id="百度（uid-generator）"><a href="#百度（uid-generator）" class="headerlink" title="百度（uid-generator）"></a>百度（uid-generator）</h3><p>github地址：<a href="https://github.com/baidu/uid-generator">uid-generator</a></p>
+<p>uid-generator使用的就是snowflake，只是在生产机器id，也叫做workId时有所不同。</p>
+<p>uid-generator中的workId是由uid-generator自动生成的，并且考虑到了应用部署在docker上的情况，在uid-generator中用户可以自己去定义workId的生成策略，默认提供的策略是：应用启动时由数据库分配。说的简单一点就是：应用在启动时会往数据库表(uid-generator需要新增一个WORKER_NODE表)中去插入一条数据，数据插入成功后返回的该数据对应的自增唯一id就是该机器的workId，而数据由host，port组成。</p>
+<p>对于uid-generator中的workId，占用了22个bit位，时间占用了28个bit位，序列化占用了13个bit位，需要注意的是，和原始的snowflake不太一样，时间的单位是秒，而不是毫秒，workId也不一样，同一个应用每重启一次就会消费一个workId。</p>
+<p>具体可参考<a href="https://github.com/baidu/uid-generator/blob/master/README.zh_cn.md">github.com/baidu/uid-g…</a></p>
+<h3 id="美团（Leaf）"><a href="#美团（Leaf）" class="headerlink" title="美团（Leaf）"></a>美团（Leaf）</h3><p>github地址：<a href="https://github.com/Meituan-Dianping/Leaf">Leaf</a></p>
+<p>美团的Leaf也是一个分布式ID生成框架。它非常全面，即支持号段模式，也支持snowflake模式。号段模式这里就不介绍了，和上面的分析类似。</p>
+<p>Leaf中的snowflake模式和原始snowflake算法的不同点，也主要在workId的生成，Leaf中workId是基于ZooKeeper的顺序Id来生成的，每个应用在使用Leaf-snowflake时，在启动时都会都在Zookeeper中生成一个顺序Id，相当于一台机器对应一个顺序节点，也就是一个workId。</p>
+<h3 id="总结-1"><a href="#总结-1" class="headerlink" title="总结"></a>总结</h3><p>总得来说，上面两种都是自动生成workId，以让系统更加稳定以及减少人工成功。</p>
+<h2 id="Redis"><a href="#Redis" class="headerlink" title="Redis"></a>Redis</h2><p>这里额外再介绍一下使用Redis来生成分布式ID，其实和利用Mysql自增ID类似，可以利用Redis中的incr命令来实现原子性的自增与返回，比如：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; set seq_id 1     &#x2F;&#x2F; 初始化自增ID为1</span><br><span class="line">OK</span><br><span class="line">127.0.0.1:6379&gt; incr seq_id      &#x2F;&#x2F; 增加1，并返回</span><br><span class="line">(integer) 2</span><br><span class="line">127.0.0.1:6379&gt; incr seq_id      &#x2F;&#x2F; 增加1，并返回</span><br><span class="line">(integer) 3</span><br></pre></td></tr></table></figure>
+
+<p>使用redis的效率是非常高的，但是要考虑持久化的问题。Redis支持RDB和AOF两种持久化的方式。</p>
+<p>RDB持久化相当于定时打一个快照进行持久化，如果打完快照后，连续自增了几次，还没来得及做下一次快照持久化，这个时候Redis挂掉了，重启Redis后会出现ID重复。</p>
+<p>AOF持久化相当于对每条写命令进行持久化，如果Redis挂掉了，不会出现ID重复的现象，但是会由于incr命令过得，导致重启恢复数据时间过长。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/jeffxjh.github.io/2021/03/22/oracle%E5%88%B0mysql%E7%BB%8F%E5%8E%86%E4%BA%86%E4%BB%80%E4%B9%88/" rel="prev" title="oracle到mysql经历了什么">
+      <i class="fa fa-chevron-left"></i> oracle到mysql经历了什么
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/jeffxjh.github.io/2021/03/22/hello-world/" rel="next" title="Hello World">
+      Hello World <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%A6%82%E4%BD%95%E4%BF%9D%E8%AF%81redis%E6%8C%82%E6%8E%89%E5%B7%B2%E5%90%8E%E6%95%B0%E6%8D%AE%E4%B8%A2%E5%A4%B1%E6%88%96%E8%80%85%E6%95%B0%E6%8D%AE%E4%B8%8D%E4%B8%80%E8%87%B4%E7%9A%84%E9%97%AE%E9%A2%98%E3%80%82"><span class="nav-number">1.</span> <span class="nav-text">如何保证redis挂掉已后数据丢失或者数据不一致的问题。</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%89%80%E4%BB%A5%E5%BC%82%E5%B8%B8%E7%B1%BB%E5%9E%8B%E6%80%BB%E7%BB%93"><span class="nav-number">2.</span> <span class="nav-text">所以异常类型总结</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#spring%E6%98%AF%E5%A6%82%E4%BD%95%E8%A7%A3%E5%86%B3%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96%E7%9A%84"><span class="nav-number">3.</span> <span class="nav-text">spring是如何解决循环依赖的</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#transaction%E6%B3%A8%E8%A7%A3-async%E6%B3%A8%E8%A7%A3%E5%A4%B1%E6%95%88%E5%8E%9F%E5%9B%A0"><span class="nav-number">4.</span> <span class="nav-text">@transaction注解@async注解失效原因</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86%E6%9C%89%E5%93%AA%E4%BA%9B"><span class="nav-number">5.</span> <span class="nav-text">动态代理有哪些</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%9F%BA%E4%BA%8EJWT-TOKEN%E7%9A%84%E6%8E%88%E6%9D%83%E8%AE%A4%E8%AF%81%E6%B5%81%E7%A8%8B"><span class="nav-number">6.</span> <span class="nav-text">基于JWT TOKEN的授权认证流程</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#spring%E7%94%A8%E5%88%B0%E4%BA%86%E9%82%A3%E4%BA%9B%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F"><span class="nav-number">7.</span> <span class="nav-text">spring用到了那些设计模式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88spring%E9%BB%98%E8%AE%A4%E6%98%AF%E5%8D%95%E4%BE%8B%E7%9A%84"><span class="nav-number">8.</span> <span class="nav-text">为什么spring默认是单例的</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%86%85%E5%AD%98%E6%B3%84%E6%BC%8F%E7%9A%84%E5%8E%9F%E5%9B%A0%E6%9C%89%E5%93%AA%E4%BA%9B%EF%BC%8C%E5%A6%82%E4%BD%95%E9%81%BF%E5%85%8D"><span class="nav-number">9.</span> <span class="nav-text">内存泄漏的原因有哪些，如何避免</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%89%8B%E5%86%99%E5%8D%95%E4%BE%8B%E4%BB%A3%E7%A0%81"><span class="nav-number">10.</span> <span class="nav-text">手写单例代码</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B%E9%95%BF%E5%BA%A6"><span class="nav-number">11.</span> <span class="nav-text">基本数据类型长度</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%8A%A8%E6%80%81%E6%B3%A8%E5%85%A5bean"><span class="nav-number">12.</span> <span class="nav-text">动态注入bean</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%85%B6%E4%BB%96%E5%9F%BA%E6%9C%AC%E7%9A%84%E9%9D%A2%E8%AF%95%E9%A2%98"><span class="nav-number">13.</span> <span class="nav-text">其他基本的面试题</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#mysql%E7%9A%84%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E%E6%9C%89%E5%93%AA%E4%BA%9B%EF%BC%8C%E6%9C%89%E5%93%AA%E4%BA%9B%E7%89%B9%E7%82%B9%E5%8C%BA%E5%88%AB"><span class="nav-number">14.</span> <span class="nav-text">mysql的存储引擎有哪些，有哪些特点区别</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#mysql%E4%BA%8B%E5%8A%A1%E4%B8%8Eoracle%E4%BA%8B%E5%8A%A1%E7%9A%84%E5%8C%BA%E5%88%AB"><span class="nav-number">15.</span> <span class="nav-text">mysql事务与oracle事务的区别</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%A6%82%E4%BD%95%E4%B8%8D%E9%87%8D%E5%90%AF%E5%8A%A8%E6%80%81%E5%88%87%E6%8D%A2%E6%95%B0%E6%8D%AE%E6%BA%90"><span class="nav-number">16.</span> <span class="nav-text">如何不重启动态切换数据源</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%A6%82%E4%BD%95%E4%B8%80%E4%B8%AA%E7%B3%BB%E7%BB%9F%E4%BD%BF%E7%94%A8%E4%B8%A4%E4%B8%AA%E4%B8%8D%E5%90%8C%E7%B1%BB%E5%9E%8B%E6%95%B0%E6%8D%AE%E5%BA%93"><span class="nav-number">17.</span> <span class="nav-text">如何一个系统使用两个不同类型数据库</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#redis%E7%9A%84%E5%BA%94%E7%94%A8"><span class="nav-number">18.</span> <span class="nav-text">redis的应用</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#rabbitmq%E7%9A%84%E5%BA%94%E7%94%A8"><span class="nav-number">19.</span> <span class="nav-text">rabbitmq的应用</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#rabbitmq%E5%A6%82%E4%BD%95%E4%BF%9D%E8%AF%81%E6%95%B0%E6%8D%AE%E4%B8%8D%E9%87%8D%E5%A4%8D%E6%B6%88%E8%B4%B9%EF%BC%8C%E4%B8%8D%E4%B8%A2%E5%A4%B1"><span class="nav-number">20.</span> <span class="nav-text">rabbitmq如何保证数据不重复消费，不丢失</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#springboot%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D%E5%8E%9F%E7%90%86"><span class="nav-number">21.</span> <span class="nav-text">springboot自动装配原理</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#mybatis%E5%88%86%E9%A1%B5%E6%9C%89%E5%93%AA%E4%BA%9B%E6%96%B9%E5%BC%8F"><span class="nav-number">22.</span> <span class="nav-text">mybatis分页有哪些方式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%81%9A%E4%B8%80%E4%B8%AA%E7%AE%80%E5%8D%95%E7%9A%84%E4%B8%AA%E4%BA%BA%E9%A1%B9%E7%9B%AE"><span class="nav-number">23.</span> <span class="nav-text">做一个简单的个人项目</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#springmvc%E7%9A%84%E6%B5%81%E7%A8%8B"><span class="nav-number">24.</span> <span class="nav-text">springmvc的流程</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#redis%E7%9A%84%E6%89%80%E6%9C%89%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98-%E9%9B%AA%E5%B4%A9-%E5%87%BB%E7%A9%BF-%E7%A9%BF%E9%80%8F-%E8%84%91%E8%A3%82-%E5%93%A8%E5%85%B5%E3%80%82%E3%80%82%E3%80%82"><span class="nav-number">25.</span> <span class="nav-text">redis的所有常见问题 雪崩 击穿 穿透 脑裂 哨兵。。。</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link"><span class="nav-number"></span> <span class="nav-text"></span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E4%BB%80%E4%B9%88%E6%98%AF-Spring-%E6%A1%86%E6%9E%B6"><span class="nav-number"></span> <span class="nav-text">1. 什么是 Spring 框架?</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E5%88%97%E4%B8%BE%E4%B8%80%E4%BA%9B%E9%87%8D%E8%A6%81%E7%9A%84Spring%E6%A8%A1%E5%9D%97%EF%BC%9F"><span class="nav-number"></span> <span class="nav-text">2. 列举一些重要的Spring模块？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-RestController-vs-Controller"><span class="nav-number"></span> <span class="nav-text">3. @RestController vs @Controller</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-Spring-IOC-amp-AOP"><span class="nav-number"></span> <span class="nav-text">4. Spring IOC &amp; AOP</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-%E8%B0%88%E8%B0%88%E8%87%AA%E5%B7%B1%E5%AF%B9%E4%BA%8E-Spring-IoC-%E5%92%8C-AOP-%E7%9A%84%E7%90%86%E8%A7%A3"><span class="nav-number"></span> <span class="nav-text">4.1 谈谈自己对于 Spring IoC 和 AOP 的理解</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#IoC"><span class="nav-number">1.</span> <span class="nav-text">IoC</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#AOP"><span class="nav-number">2.</span> <span class="nav-text">AOP</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-Spring-AOP-%E5%92%8C-AspectJ-AOP-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="nav-number"></span> <span class="nav-text">4.2 Spring AOP 和 AspectJ AOP 有什么区别？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-Spring-bean"><span class="nav-number"></span> <span class="nav-text">5. Spring bean</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#5-1-Spring-%E4%B8%AD%E7%9A%84-bean-%E7%9A%84%E4%BD%9C%E7%94%A8%E5%9F%9F%E6%9C%89%E5%93%AA%E4%BA%9B"><span class="nav-number"></span> <span class="nav-text">5.1 Spring 中的 bean 的作用域有哪些?</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-2-Spring-%E4%B8%AD%E7%9A%84%E5%8D%95%E4%BE%8B-bean-%E7%9A%84%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8%E9%97%AE%E9%A2%98%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="nav-number"></span> <span class="nav-text">5.2 Spring 中的单例 bean 的线程安全问题了解吗？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-3-Component-%E5%92%8C-Bean-%E7%9A%84%E5%8C%BA%E5%88%AB%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="nav-number"></span> <span class="nav-text">5.3 @Component 和 @Bean 的区别是什么？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-4-%E5%B0%86%E4%B8%80%E4%B8%AA%E7%B1%BB%E5%A3%B0%E6%98%8E%E4%B8%BASpring%E7%9A%84-bean-%E7%9A%84%E6%B3%A8%E8%A7%A3%E6%9C%89%E5%93%AA%E4%BA%9B"><span class="nav-number"></span> <span class="nav-text">5.4 将一个类声明为Spring的 bean 的注解有哪些?</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-5-Spring-%E4%B8%AD%E7%9A%84-bean-%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F"><span class="nav-number"></span> <span class="nav-text">5.5 Spring 中的 bean 生命周期?</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#6-Spring-MVC"><span class="nav-number"></span> <span class="nav-text">6. Spring MVC</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#6-1-%E8%AF%B4%E8%AF%B4%E8%87%AA%E5%B7%B1%E5%AF%B9%E4%BA%8E-Spring-MVC-%E4%BA%86%E8%A7%A3"><span class="nav-number"></span> <span class="nav-text">6.1 说说自己对于 Spring MVC 了解?</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6-2-SpringMVC-%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86%E4%BA%86%E8%A7%A3%E5%90%97"><span class="nav-number"></span> <span class="nav-text">6.2 SpringMVC 工作原理了解吗?</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#7-Spring-%E6%A1%86%E6%9E%B6%E4%B8%AD%E7%94%A8%E5%88%B0%E4%BA%86%E5%93%AA%E4%BA%9B%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%EF%BC%9F"><span class="nav-number"></span> <span class="nav-text">7. Spring 框架中用到了哪些设计模式？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#8-Spring-%E4%BA%8B%E5%8A%A1"><span class="nav-number"></span> <span class="nav-text">8. Spring 事务</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#8-1-Spring-%E7%AE%A1%E7%90%86%E4%BA%8B%E5%8A%A1%E7%9A%84%E6%96%B9%E5%BC%8F%E6%9C%89%E5%87%A0%E7%A7%8D%EF%BC%9F"><span class="nav-number"></span> <span class="nav-text">8.1 Spring 管理事务的方式有几种？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-2-Spring-%E4%BA%8B%E5%8A%A1%E4%B8%AD%E7%9A%84%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB%E6%9C%89%E5%93%AA%E5%87%A0%E7%A7%8D"><span class="nav-number"></span> <span class="nav-text">8.2 Spring 事务中的隔离级别有哪几种?</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-3-Spring-%E4%BA%8B%E5%8A%A1%E4%B8%AD%E5%93%AA%E5%87%A0%E7%A7%8D%E4%BA%8B%E5%8A%A1%E4%BC%A0%E6%92%AD%E8%A1%8C%E4%B8%BA"><span class="nav-number"></span> <span class="nav-text">8.3 Spring 事务中哪几种事务传播行为?</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#8-4-Transactional-rollbackFor-Exception-class-%E6%B3%A8%E8%A7%A3%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="nav-number"></span> <span class="nav-text">8.4 @Transactional(rollbackFor &#x3D; Exception.class)注解了解吗？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#9-JPA"><span class="nav-number"></span> <span class="nav-text">9. JPA</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#9-1-%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8JPA%E5%9C%A8%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B8%AD%E9%9D%9E%E6%8C%81%E4%B9%85%E5%8C%96%E4%B8%80%E4%B8%AA%E5%AD%97%E6%AE%B5%EF%BC%9F"><span class="nav-number"></span> <span class="nav-text">9.1 如何使用JPA在数据库中非持久化一个字段？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number"></span> <span class="nav-text">参考</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E4%BB%80%E4%B9%88%E6%98%AF%E4%BA%8B%E5%8A%A1%EF%BC%9F"><span class="nav-number"></span> <span class="nav-text">1. 什么是事务？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-%E4%BA%8B%E5%8A%A1%E7%9A%84%E7%89%B9%E6%80%A7%EF%BC%88ACID%EF%BC%89%E4%BA%86%E8%A7%A3%E4%B9%88"><span class="nav-number"></span> <span class="nav-text">2. 事务的特性（ACID）了解么?</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-%E8%AF%A6%E8%B0%88-Spring-%E5%AF%B9%E4%BA%8B%E5%8A%A1%E7%9A%84%E6%94%AF%E6%8C%81"><span class="nav-number"></span> <span class="nav-text">3. 详谈 Spring 对事务的支持</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-Spring-%E6%94%AF%E6%8C%81%E4%B8%A4%E7%A7%8D%E6%96%B9%E5%BC%8F%E7%9A%84%E4%BA%8B%E5%8A%A1%E7%AE%A1%E7%90%86"><span class="nav-number"></span> <span class="nav-text">3.1. Spring 支持两种方式的事务管理</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-%E7%BC%96%E7%A8%8B%E5%BC%8F%E4%BA%8B%E5%8A%A1%E7%AE%A1%E7%90%86"><span class="nav-number">1.</span> <span class="nav-text">1).编程式事务管理</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-%E5%A3%B0%E6%98%8E%E5%BC%8F%E4%BA%8B%E5%8A%A1%E7%AE%A1%E7%90%86"><span class="nav-number">2.</span> <span class="nav-text">2)声明式事务管理</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-Spring-%E4%BA%8B%E5%8A%A1%E7%AE%A1%E7%90%86%E6%8E%A5%E5%8F%A3%E4%BB%8B%E7%BB%8D"><span class="nav-number"></span> <span class="nav-text">3.2. Spring 事务管理接口介绍</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-1-PlatformTransactionManager-%E4%BA%8B%E5%8A%A1%E7%AE%A1%E7%90%86%E6%8E%A5%E5%8F%A3"><span class="nav-number">1.</span> <span class="nav-text">3.2.1. PlatformTransactionManager:事务管理接口</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-2-TransactionDefinition-%E4%BA%8B%E5%8A%A1%E5%B1%9E%E6%80%A7"><span class="nav-number">2.</span> <span class="nav-text">3.2.2. TransactionDefinition:事务属性</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-3-TransactionStatus-%E4%BA%8B%E5%8A%A1%E7%8A%B6%E6%80%81"><span class="nav-number">3.</span> <span class="nav-text">3.2.3. TransactionStatus:事务状态</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-%E4%BA%8B%E5%8A%A1%E5%B1%9E%E6%80%A7%E8%AF%A6%E8%A7%A3"><span class="nav-number"></span> <span class="nav-text">3.3. 事务属性详解</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-3-1-%E4%BA%8B%E5%8A%A1%E4%BC%A0%E6%92%AD%E8%A1%8C%E4%B8%BA"><span class="nav-number">1.</span> <span class="nav-text">3.3.1. 事务传播行为</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-3-2-%E4%BA%8B%E5%8A%A1%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB"><span class="nav-number">2.</span> <span class="nav-text">3.3.2 事务隔离级别</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-3-3-%E4%BA%8B%E5%8A%A1%E8%B6%85%E6%97%B6%E5%B1%9E%E6%80%A7"><span class="nav-number">3.</span> <span class="nav-text">3.3.3. 事务超时属性</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-3-3-%E4%BA%8B%E5%8A%A1%E5%8F%AA%E8%AF%BB%E5%B1%9E%E6%80%A7"><span class="nav-number">4.</span> <span class="nav-text">3.3.3. 事务只读属性</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-3-4-%E4%BA%8B%E5%8A%A1%E5%9B%9E%E6%BB%9A%E8%A7%84%E5%88%99"><span class="nav-number">5.</span> <span class="nav-text">3.3.4. 事务回滚规则</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-Transactional-%E6%B3%A8%E8%A7%A3%E4%BD%BF%E7%94%A8%E8%AF%A6%E8%A7%A3"><span class="nav-number"></span> <span class="nav-text">3.4. @Transactional 注解使用详解</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-Transactional-%E7%9A%84%E4%BD%9C%E7%94%A8%E8%8C%83%E5%9B%B4"><span class="nav-number">1.</span> <span class="nav-text">1) @Transactional 的作用范围</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-Transactional-%E7%9A%84%E5%B8%B8%E7%94%A8%E9%85%8D%E7%BD%AE%E5%8F%82%E6%95%B0"><span class="nav-number">2.</span> <span class="nav-text">2) @Transactional 的常用配置参数</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-Transactional-%E4%BA%8B%E5%8A%A1%E6%B3%A8%E8%A7%A3%E5%8E%9F%E7%90%86"><span class="nav-number">3.</span> <span class="nav-text">3)@Transactional 事务注解原理</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-Spring-AOP-%E8%87%AA%E8%B0%83%E7%94%A8%E9%97%AE%E9%A2%98"><span class="nav-number">4.</span> <span class="nav-text">4)Spring AOP 自调用问题</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#5-Transactional-%E7%9A%84%E4%BD%BF%E7%94%A8%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9%E6%80%BB%E7%BB%93"><span class="nav-number">5.</span> <span class="nav-text">5) @Transactional 的使用注意事项总结</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-Reference"><span class="nav-number"></span> <span class="nav-text">4. Reference</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8E%A7%E5%88%B6%E5%8F%8D%E8%BD%AC-IoC-%E5%92%8C%E4%BE%9D%E8%B5%96%E6%B3%A8%E5%85%A5-DI"><span class="nav-number"></span> <span class="nav-text">控制反转(IoC)和依赖注入(DI)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B7%A5%E5%8E%82%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F"><span class="nav-number"></span> <span class="nav-text">工厂设计模式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%95%E4%BE%8B%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F"><span class="nav-number"></span> <span class="nav-text">单例设计模式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%A3%E7%90%86%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F"><span class="nav-number"></span> <span class="nav-text">代理设计模式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%A3%E7%90%86%E6%A8%A1%E5%BC%8F%E5%9C%A8-AOP-%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8"><span class="nav-number"></span> <span class="nav-text">代理模式在 AOP 中的应用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Spring-AOP-%E5%92%8C-AspectJ-AOP-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB"><span class="nav-number"></span> <span class="nav-text">Spring AOP 和 AspectJ AOP 有什么区别?</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A8%A1%E6%9D%BF%E6%96%B9%E6%B3%95"><span class="nav-number"></span> <span class="nav-text">模板方法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A7%82%E5%AF%9F%E8%80%85%E6%A8%A1%E5%BC%8F"><span class="nav-number"></span> <span class="nav-text">观察者模式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Spring-%E4%BA%8B%E4%BB%B6%E9%A9%B1%E5%8A%A8%E6%A8%A1%E5%9E%8B%E4%B8%AD%E7%9A%84%E4%B8%89%E7%A7%8D%E8%A7%92%E8%89%B2"><span class="nav-number"></span> <span class="nav-text">Spring 事件驱动模型中的三种角色</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%BA%8B%E4%BB%B6%E8%A7%92%E8%89%B2"><span class="nav-number">1.</span> <span class="nav-text">事件角色</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%BA%8B%E4%BB%B6%E7%9B%91%E5%90%AC%E8%80%85%E8%A7%92%E8%89%B2"><span class="nav-number">2.</span> <span class="nav-text">事件监听者角色</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%BA%8B%E4%BB%B6%E5%8F%91%E5%B8%83%E8%80%85%E8%A7%92%E8%89%B2"><span class="nav-number">3.</span> <span class="nav-text">事件发布者角色</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Spring-%E7%9A%84%E4%BA%8B%E4%BB%B6%E6%B5%81%E7%A8%8B%E6%80%BB%E7%BB%93"><span class="nav-number"></span> <span class="nav-text">Spring 的事件流程总结</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%80%82%E9%85%8D%E5%99%A8%E6%A8%A1%E5%BC%8F"><span class="nav-number"></span> <span class="nav-text">适配器模式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#spring-AOP%E4%B8%AD%E7%9A%84%E9%80%82%E9%85%8D%E5%99%A8%E6%A8%A1%E5%BC%8F"><span class="nav-number"></span> <span class="nav-text">spring AOP中的适配器模式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#spring-MVC%E4%B8%AD%E7%9A%84%E9%80%82%E9%85%8D%E5%99%A8%E6%A8%A1%E5%BC%8F"><span class="nav-number"></span> <span class="nav-text">spring MVC中的适配器模式</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A3%85%E9%A5%B0%E8%80%85%E6%A8%A1%E5%BC%8F"><span class="nav-number"></span> <span class="nav-text">装饰者模式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number"></span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83-1"><span class="nav-number"></span> <span class="nav-text">参考</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Spring-AOP%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86"><span class="nav-number"></span> <span class="nav-text">Spring AOP实现原理</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%A3%E7%90%86%E6%A8%A1%E5%BC%8F"><span class="nav-number"></span> <span class="nav-text">代理模式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%9D%99%E6%80%81%E4%BB%A3%E7%90%86"><span class="nav-number"></span> <span class="nav-text">静态代理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86"><span class="nav-number"></span> <span class="nav-text">动态代理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#JDK%E8%87%AA%E5%B8%A6%E6%96%B9%E6%B3%95"><span class="nav-number"></span> <span class="nav-text">JDK自带方法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CGLIB%E5%BA%93%E7%9A%84%E6%96%B9%E6%B3%95"><span class="nav-number"></span> <span class="nav-text">CGLIB库的方法</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E5%BA%93%E8%87%AA%E5%A2%9EID"><span class="nav-number"></span> <span class="nav-text">数据库自增ID</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E5%BA%93%E5%A4%9A%E4%B8%BB%E6%A8%A1%E5%BC%8F"><span class="nav-number"></span> <span class="nav-text">数据库多主模式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%B7%E6%AE%B5%E6%A8%A1%E5%BC%8F"><span class="nav-number"></span> <span class="nav-text">号段模式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95"><span class="nav-number"></span> <span class="nav-text">雪花算法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%99%BE%E5%BA%A6%EF%BC%88uid-generator%EF%BC%89"><span class="nav-number"></span> <span class="nav-text">百度（uid-generator）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BE%8E%E5%9B%A2%EF%BC%88Leaf%EF%BC%89"><span class="nav-number"></span> <span class="nav-text">美团（Leaf）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%BB%E7%BB%93-1"><span class="nav-number"></span> <span class="nav-text">总结</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Redis"><span class="nav-number"></span> <span class="nav-text">Redis</span></a></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">jeffxjh</p>
+  <div class="site-description" itemprop="description">个人经验总结</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/jeffxjh.github.io/archives/">
+        
+          <span class="site-state-item-count">3</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">jeffxjh</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/jeffxjh.github.io/lib/anime.min.js"></script>
+  <script src="/jeffxjh.github.io/lib/velocity/velocity.min.js"></script>
+  <script src="/jeffxjh.github.io/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/jeffxjh.github.io/js/utils.js"></script>
+
+<script src="/jeffxjh.github.io/js/motion.js"></script>
+
+
+<script src="/jeffxjh.github.io/js/schemes/pisces.js"></script>
+
+
+<script src="/jeffxjh.github.io/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
