@@ -1,7 +1,7 @@
 # Site settings
 title: 清风徐来
 SEOTitle: 清风徐来
-header-img: img/wallhaven-1kryxg.jpg
+header-img: img/wallhaven-8ody32.jpg
 email: 暂无
 description: "欢迎大家访问，一起交流学习."
 keyword: "徐"
@@ -11,8 +11,8 @@ github_repo: "https://github.com/jeffxjh/jeffxjh.github.io.git" # you code repos
 
 # Sidebar settings
 sidebar: true                           # whether or not using Sidebar.
-sidebar-about-description: "我准备在侧边栏写一句装逼的话，但是写什么还没想好~"
-sidebar-avatar: /img/avatar_binggan.jpg      # use absolute URL, seeing it's used in both `/` and `/about/`
+sidebar-about-description: "susan"
+sidebar-avatar: /img/wallhaven-y8vvex.jpg      # use absolute URL, seeing it's used in both `/` and `/about/`
 
 
 
@@ -103,14 +103,5 @@ friends: [
     {
         title: "WY",
         href: "http://zhengwuyang.com"
-    },{
-        title: "简书·BY",
-        href: "http://www.jianshu.com/u/e71990ada2fd"
-    },{
-        title: "Apple",
-        href: "https://apple.com"
-    },{
-        title: "Apple Developer",
-        href: "https://developer.apple.com/"
     }
 ]
